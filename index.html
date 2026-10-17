@@ -228,7 +228,7 @@ main .wrap { padding-block: 14px 40px; }
     rows.forEach(function (r, i) { r.row = i + 4; r.nudge = ''; r.nudgeNote = ''; r.boss = ''; r.bossAck = ''; });
     rows[0].boss = '단어 재시험 80점 넘을 때까지 보내지 마세요.';
     rows[3].boss = '지난주 워크북 미완 → 오늘 꼭 확인';
-    var notice = { text: '오늘 2자 자습실 에어컨 수리 — 2자 배정하지 마세요.', acks: [] };
+    var notice = { text: '오늘 18시 이후 복도 청소 있어요. 하원 학생 짐 꼭 챙기게 해주세요.', acks: [] };
     var choices = { att: ['출석', '지각', '사유결석', '무단결석', '자료만수령'], room: ['1자', '1-1자', '2자'], wb: ['완료', '미완', '미지참'], extra: ['완료', '미완', '받아감'], retest: ['통과', '재시', '미실시'] };
     function find(row) { return rows.filter(function (r) { return r.row === row; })[0]; }
     return {
@@ -331,7 +331,7 @@ main .wrap { padding-block: 14px 40px; }
   function status(r) {
     if (r.kind === '취소(일정변경)') return { k: 'cancel', t: '취소됨', c: 's-out' };
     if (r.out) return { k: 'out', t: '하원 ' + r.out, c: 's-out' };
-    if (r.att === '출석' || r.att === '지각') return { k: 'in', t: '재실' + (r.room ? ' · ' + r.room : ''), c: 's-in' };
+    if (r.att === '출석' || r.att === '지각') return { k: 'in', t: '재실', c: 's-in' };
     if (r.att) return { k: 'abs', t: r.att, c: 's-abs' };
     var t = mins(r.time), n = nowMin();
     if (t != null && n >= t + state.absentAfter) return { k: 'late', t: '미도착 +' + (n - t) + '분', c: 's-late' };
@@ -409,7 +409,6 @@ main .wrap { padding-block: 14px 40px; }
       h += '<p class="note">' + esc(r.nudgeNote) + '</p>';
     }
     if (r.att === '출석' || r.att === '지각') {
-      h += '<div class="row"><div class="lab"><span>자습실</span></div>' + seg('room', state.choices.room || [], r.room) + '</div>';
       if (r.todo) h += '<div class="row"><div class="lab"><span>해야 할 일</span></div><div class="todo">' + esc(r.todo) + '</div></div>';
       h += '<div class="row"><div class="lab"><span>Things To Do</span><span>다시 누르면 지워집니다</span></div><div class="tasks">' +
         '<span class="k">워크북</span>' + seg('wb', state.choices.wb || [], r.wb) +
@@ -465,7 +464,6 @@ main .wrap { padding-block: 14px 40px; }
 
   function summary(r) {
     var bits = [];
-    if (r.room) bits.push(r.room);
     if (r.wb) bits.push('워크북 ' + r.wb);
     if (r.extra) bits.push('실전 ' + r.extra);
     if (r.retest) bits.push('재시 ' + r.retest);
