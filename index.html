@@ -237,6 +237,7 @@ main .wrap { padding-block: 14px 40px; }
 .lg-instbtn svg { width: 18px; height: 18px; }
 .lg-howto { width: 100%; background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.25); border-radius: 14px; padding: 12px 14px; color: var(--hero-ink); font-size: 14px; line-height: 1.6; }
 .lg-howto b { color: #9FE6DC; }
+.lg-howto .lg-instbtn { justify-content: center; width: 100%; }
 .lg-howto ol { margin: 4px 0 0; padding-left: 20px; }
 .lg-foot { text-align: center; font-size: 12.5px; color: var(--hero-sub); margin: 0; line-height: 1.6; }
 .lg-foot b { color: var(--hero-ink); font-weight: 600; }
@@ -666,8 +667,15 @@ tr.quit td { color: var(--muted); }
     }
     var how = $('instHow'), h;
     if (isIOS) h = '<b>아이폰·아이패드 (사파리)</b><ol><li>화면 아래(아이패드는 위)의 <b>공유</b> 버튼 □↑ 누르기</li><li><b>홈 화면에 추가</b> 누르기</li><li>오른쪽 위 <b>추가</b></li></ol>';
-    else if (isSamsung) h = '<b>삼성 인터넷</b><ol><li>아래 메뉴 ≡ → <b>현재 페이지 추가</b> → <b>홈 화면</b></li></ol>앱처럼 전체 화면으로 쓰려면 <b>크롬</b>에서 이 주소를 열고 설치해 주세요.';
-    else h = '<b>크롬</b><ol><li>오른쪽 위 <b>⋮</b> 메뉴 누르기</li><li><b>앱 설치</b> 또는 <b>홈 화면에 추가</b></li></ol>PC는 주소창 오른쪽의 설치 아이콘을 눌러도 됩니다.';
+    else if (isSamsung) {
+      var u = location.href.replace(/^https?:\/\//, '').split('#')[0];
+      h = '<b>지금은 삼성 인터넷으로 열려 있어요</b><br>삼성 인터넷에서는 바로가기만 만들어집니다. 앱처럼 쓰려면 크롬에서 설치해 주세요.' +
+        '<a class="lg-instbtn" style="margin-top:10px;text-decoration:none" href="intent://' + esc(u) + '#Intent;scheme=https;package=com.android.chrome;end">크롬으로 열기</a>' +
+        '<div style="margin-top:8px;font-size:13px">크롬에서 열리면 이 버튼을 한 번 더 눌러 주세요.</div>';
+    }
+    else if (/Android/.test(UA)) h = '<b>안드로이드 크롬</b><ol><li>오른쪽 위 <b>⋮</b> 메뉴 누르기</li><li><b>앱 설치</b>가 보이면 누르기. 없으면 <b>홈 화면에 추가</b>를 누른 뒤 나오는 창에서 <b>설치</b> 고르기</li></ol>' +
+        '"바로가기 만들기"가 아니라 <b>설치</b>를 골라야 주소창 없이 앱처럼 열립니다.<br><span style="font-size:13px">크롬은 처음 방문한 직후에는 설치 창을 바로 띄우지 않아요. 30초쯤 둘러본 뒤 이 버튼을 다시 누르면 설치 창이 뜰 수 있습니다.</span>';
+    else h = '<b>PC 크롬</b><ol><li>주소창 오른쪽의 <b>설치 아이콘</b> 누르기</li><li>또는 오른쪽 위 <b>⋮</b> → <b>앱 설치</b></li></ol>';
     how.innerHTML = h; how.hidden = !how.hidden;
   });
   instShow();
