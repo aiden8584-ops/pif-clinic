@@ -253,6 +253,8 @@ main .wrap { padding-block: 14px 40px; }
 .nbtn:disabled { opacity: .6; }
 .tk .nbtn { justify-self: start; margin-top: 4px; }
 .tk[role="button"] { cursor: pointer; }
+.ltb tr.lst-tk { cursor: pointer; }
+.lstu.insheet { border: 0; }
 .al .ic { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 14px; flex: none; }
 .al b { display: block; font-size: 14px; }
 .al small { font-size: 12.5px; color: var(--muted); }
@@ -1278,9 +1280,10 @@ tr.quit td { color: var(--muted); }
   // 원장 탭: 수업피드백 · 변경신청 · 학생명단 · 규정·설정 (원장으로 로그인했을 때만 보임)
   // =====================================================================
   (function () {
-    var V = { view: 'today', loaded: {}, L: null, Q: null, RO: null, RU: null, reqOpen: {}, edit: null,
+    var V = { llay: 'card', lsheet: null, view: 'today', loaded: {}, L: null, Q: null, RO: null, RU: null, reqOpen: {}, edit: null,
               rq: '', rcls: '', rst: '재원', ruleWarn: false, lopen: {} };
     try { var sv = localStorage.getItem('pif_view'); if (sv) V.view = sv; } catch (e) {}
+    try { var ll = localStorage.getItem('pif_llayout'); if (ll === 'board' || ll === 'list') V.llay = ll; } catch (e) {}
     var TITLES = { today: '오늘 클리닉', report: '성취도 문자', lesson: '수업피드백', req: '변경신청', roster: '학생명단', week: '주간 현황', rule: '규정·설정' };
     var VIEWS = ['today', 'report', 'lesson', 'req', 'roster', 'week', 'rule'];
 
@@ -1545,7 +1548,9 @@ tr.quit td { color: var(--muted); }
       var approved = L.classes.filter(function (c) { return c.approved; }).length;
       var waiting = L.students.filter(function (s) { return s.status === '대기'; }).length;
       h += '<div class="vhead"><span class="sub">' + (L.date ? mdw(L.date) + ' 수업 · ' : '') + '반 ' + L.classes.length + '개 · 학생 ' + L.students.length + '명 · 승인한 반은 발송시각에 자동 발송 (비우면 ' + esc(L.reportTime) + ')</span>' +
-        '<span class="act"><button class="btn warn" type="button" data-la="sendnow"' + (waiting ? '' : ' disabled') + '>승인된 반 지금 발송 (' + waiting + '명)</button></span></div>';
+        '<span class="act" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="lay" role="group" aria-label="학생 보기 방식">' +
+        [['card', '카드'], ['board', '칸'], ['list', '목록']].map(function (x) { return '<button type="button" data-llay="' + x[0] + '" aria-pressed="' + (V.llay === x[0]) + '">' + x[1] + '</button>'; }).join('') + '</span>' +
+        '<button class="btn warn" type="button" data-la="sendnow"' + (waiting ? '' : ' disabled') + '>승인된 반 지금 발송 (' + waiting + '명)</button></span></div>';
       if (!L.classes.length) h += '<div class="empty">오늘 수업이 있는 반이 없습니다. 반은 매일 0시에 학생명단의 수업요일로 자동으로 채워집니다.</div>';
       L.classes.forEach(function (c) {
         var mine = L.students.filter(function (s) { return s.cls === c.cls; });
@@ -1567,11 +1572,57 @@ tr.quit td { color: var(--muted); }
             L.items.map(function (it) { return '<button type="button" data-tog="' + esc(it) + '" aria-pressed="' + !!c.tog[it] + '">' + esc(it) + '</button>'; }).join('') +
             '</div></div></div>';
         }
-        h += '<div class="sgrid" style="padding-top:' + (open ? '0' : '0') + '">' + mine.map(stuHTML).join('') + '</div>';
+        h += V.llay === 'board' ? lBoardHTML(mine) : V.llay === 'list' ? lListHTML(mine) : '<div class="sgrid">' + mine.map(stuHTML).join('') + '</div>';
         h += '</section>';
       });
+      h += lSheetHTML();
       paint($('view-lesson'), h);
     }
+    // ---- 수업피드백 학생 보기: 칸 · 목록 ----
+    var LGROUPS = [['none', '출석 미입력', 'var(--warn)', function (a) { return !a; }], ['in', '출석·지각', 'var(--ok)', function (a) { return a === '출석' || a === '지각'; }],
+                   ['makeup', '영상보강', 'var(--accent)', function (a) { return a === '영상보강'; }], ['abs', '결석', 'var(--bad)', function (a) { return a === '결석'; }]];
+    function sKey(s) { return s.cls + '|' + s.name + '|' + s.row; }
+    function sAttrs(s) { return ' data-row="' + s.row + '" data-name="' + esc(s.name) + '" data-cls="' + esc(s.cls) + '" data-sk="' + esc(sKey(s)) + '"'; }
+    function lStatusPill(s) {
+      return '<span class="pill ' + (/^발송완료/.test(s.status) ? 's-in' : /^⚠️/.test(s.status) ? 's-late' : /^제외/.test(s.status) ? 's-out' : 's-plan') + '">' + esc(s.status || '—') + '</span>';
+    }
+    function lAbsentBtn(s) {
+      if (s.att) return '';
+      if (s.absent === 'wait') return '<button class="nbtn wait" type="button" data-la="absent-off">발송 대기 · 취소</button>';
+      if (s.absent === 'sent') return '<span class="nbtn done">✓ 알림 보냄</span>';
+      return '<button class="nbtn" type="button" data-la="absent-on">✉ 미도착 알림 보내기</button>';
+    }
+    function lBoardHTML(mine) {
+      return '<div class="board" style="padding:0 14px 14px;grid-template-columns:repeat(4,minmax(180px,1fr))">' + LGROUPS.map(function (g) {
+        var list = mine.filter(function (s) { return g[3](s.att); });
+        return '<div class="bcol"><h3><i style="background:' + g[2] + '"></i>' + g[1] + '<span>' + list.length + '</span></h3>' + list.map(function (s) {
+          var bits = [];
+          if (s.hw) bits.push('과제 ' + s.hw); if (s.score !== '') bits.push(s.score + '점' + (s.pass ? ' ' + s.pass : '')); if (s.atti) bits.push('태도 ' + s.atti);
+          return '<div class="tk lst-tk" role="button" tabindex="0"' + sAttrs(s) + '><span class="r1"><b>' + esc(s.name) + '</b></span>' +
+            '<span class="r2">' + lStatusPill(s) + (bits.length ? '<span>' + esc(bits.join(' · ')) + '</span>' : '') + (s.excl ? '<span class="flag">발송 제외</span>' : '') + '</span>' +
+            lAbsentBtn(s) + '</div>';
+        }).join('') + '</div>';
+      }).join('') + '</div>';
+    }
+    function lListHTML(mine) {
+      if (!mine.length) return '';
+      return '<div style="padding:0 14px 14px"><div class="ltb"><table><thead><tr><th>이름</th><th>출석</th><th>과제</th><th>리뷰</th><th>재시험</th><th>태도</th><th>문자</th><th></th></tr></thead><tbody>' +
+        mine.map(function (s) {
+          return '<tr class="lst-tk' + (!s.att ? ' hl' : '') + '"' + sAttrs(s) + '><td><b>' + esc(s.name) + '</b></td>' +
+            '<td>' + (s.att ? '<span class="pill ' + (s.att === '결석' ? 's-abs' : s.att === '영상보강' ? 's-start' : s.att === '지각' ? 's-late' : 's-in') + '">' + esc(s.att) + '</span>' : '<span class="st-mute">—</span>') + '</td>' +
+            '<td>' + esc(s.hw || '—') + '</td><td class="mono">' + (s.score !== '' ? esc(s.score) + '점 ' + (s.pass ? '<span class="st-mute">' + esc(s.pass) + '</span>' : '') : '—') + '</td>' +
+            '<td>' + esc(s.retest || '—') + '</td><td>' + esc(s.atti || '—') + (s.cmt ? ' <span class="st-mute">💬</span>' : '') + '</td>' +
+            '<td>' + lStatusPill(s) + (s.excl ? ' <span class="st-mute">제외</span>' : '') + '</td><td>' + lAbsentBtn(s) + '</td></tr>';
+        }).join('') + '</tbody></table></div></div>';
+    }
+    function lSheetHTML() {
+      if (V.llay === 'card' || !V.lsheet) return '';
+      var s = V.L.students.filter(function (x) { return sKey(x) === V.lsheet; })[0];
+      if (!s) { V.lsheet = null; return ''; }
+      return '<div class="sheet-bg" data-lsheet-bg><div class="sheet"><div class="sheet-x"><button type="button" data-lclose>닫기</button></div>' + stuHTML(s).replace('class="lstu', 'class="lstu insheet') + '</div></div>';
+    }
+    document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape' && V.lsheet) { V.lsheet = null; drawLesson(); } });
+
     function stuHTML(s) {
       var ch = V.L.choices, k = s.cls + '|' + s.name;
       var off = s.excl || s.att === '결석';
@@ -1600,13 +1651,20 @@ tr.quit td { color: var(--muted); }
     function lessonSet(res) { var d = res && res.data ? res.data : res; if (d) { V.L = d; drawLesson(); } if (res && res.msg) toast(res.msg); }
     $('view-lesson').addEventListener('click', function (ev) {
       var b = ev.target.closest('button');
+      if (ev.target.hasAttribute && ev.target.hasAttribute('data-lsheet-bg')) { V.lsheet = null; drawLesson(); return; }
+      if (b && b.hasAttribute('data-lclose')) { V.lsheet = null; drawLesson(); return; }
+      if (b && b.dataset.llay) { V.llay = b.dataset.llay; V.lsheet = null; try { localStorage.setItem('pif_llayout', V.llay); } catch (e) {} drawLesson(); return; }
+      if (!b) {
+        var tk = ev.target.closest('.lst-tk');   // 칸·목록에서 학생을 누르면 입력 카드 열기
+        if (tk) { V.lsheet = tk.dataset.sk; drawLesson(); return; }
+      }
       if (!b) {   // 반 이름 줄을 누르면 반 내용 펼치기·접기
         var lh = ev.target.closest('.lhead');
         if (lh) { var cc = clsOf(lh.closest('.lcls')); V.lopen[cc.cls] = !(V.lopen[cc.cls] != null ? V.lopen[cc.cls] : !cc.approved); drawLesson(); }
         return;
       }
       if (b.disabled) return;
-      var sec = b.closest('.lcls'), card = b.closest('.lstu');
+      var sec = b.closest('.lcls'), card = b.closest('.lstu, .lst-tk');
       var segEl = b.closest('.seg');
       if (segEl && card) {
         var f = segEl.dataset.lf, s = stuOf(card), nv = s[f] === b.dataset.v ? '' : b.dataset.v;
@@ -1658,7 +1716,7 @@ tr.quit td { color: var(--muted); }
     $('view-lesson').addEventListener('focusout', function (ev) { var t = ev.target; if (t.tagName !== 'SELECT' && (t.dataset.lc || t.dataset.ls)) lessonCommit(t); });
     $('view-lesson').addEventListener('keydown', function (ev) {
       if (ev.key === 'Enter' && ev.target.tagName === 'INPUT') { ev.preventDefault(); ev.target.blur(); }
-      else if ((ev.key === 'Enter' || ev.key === ' ') && ev.target.classList.contains('lhead')) { ev.preventDefault(); ev.target.click(); }
+      else if ((ev.key === 'Enter' || ev.key === ' ') && (ev.target.classList.contains('lhead') || ev.target.classList.contains('lst-tk'))) { ev.preventDefault(); ev.target.click(); }
     });
 
     // =========================== 변경신청 ===========================
