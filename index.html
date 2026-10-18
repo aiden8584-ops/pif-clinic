@@ -222,6 +222,64 @@ main .wrap { padding-block: 14px 40px; }
 .lg-foot b { color: var(--hero-ink); font-weight: 600; }
 @media (prefers-reduced-motion: reduce) { .lg-roles button { transition: none; } }
 
+/* ---------- 한눈에 보기: A 진행 요약 · B 확인할 것 · C 칸 · E 목록 ---------- */
+.ov { display: grid; gap: 12px; margin-bottom: 14px; }
+.sum { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px; display: grid; gap: 12px; }
+.sum-h { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.sum-h .cap { font-size: 13.5px; color: var(--muted); }
+.sum-h .cap b { color: var(--ink); }
+.nums { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+.num { border: 1px solid var(--line); background: var(--surface); border-radius: 12px; padding: 9px 12px; text-align: left; display: grid; gap: 1px; min-height: 64px; }
+.num b { font-family: var(--mono); font-size: 24px; font-weight: 600; line-height: 1.15; font-variant-numeric: tabular-nums; }
+.num span { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+.num i { width: 9px; height: 9px; border-radius: 3px; }
+.num[aria-pressed="true"] { border-color: var(--ink); box-shadow: 0 0 0 1px var(--ink) inset; }
+.pbar { display: flex; height: 10px; border-radius: 999px; overflow: hidden; background: transparent; gap: 2px; }
+.pbar > div { height: 100%; }
+@media (max-width: 560px) { .nums { grid-template-columns: repeat(3, minmax(0, 1fr)); } .num b { font-size: 21px; } }
+.lay { display: flex; gap: 3px; background: var(--done-soft); padding: 3px; border-radius: 10px; }
+.lay button { border: 0; background: none; padding: 6px 12px; border-radius: 8px; font-size: 13.5px; font-weight: 600; color: var(--muted); white-space: nowrap; }
+.lay button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+.alerts { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: thin; }
+.al { flex: none; display: flex; align-items: center; gap: 10px; border: 1px solid; border-radius: 12px; padding: 9px 14px 9px 10px; background: var(--surface); text-align: left; min-width: 200px; }
+.al .ic { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 14px; flex: none; }
+.al b { display: block; font-size: 14px; }
+.al small { font-size: 12.5px; color: var(--muted); }
+.al.bad { border-color: var(--bad); } .al.bad .ic { background: var(--bad-soft); color: var(--bad); }
+.al.warn { border-color: var(--warn); } .al.warn .ic { background: var(--warn-soft); color: var(--warn); }
+.alerts .none { font-size: 13.5px; color: var(--ok); padding: 6px 2px; }
+.card.flash { box-shadow: 0 0 0 3px var(--accent); }
+.board { display: grid; gap: 10px; overflow-x: auto; padding-bottom: 4px; }
+.bcol { background: var(--done-soft); border-radius: 14px; padding: 10px; display: grid; gap: 8px; align-content: start; min-height: 140px; }
+.bcol h3 { margin: 0 2px 2px; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+.bcol h3 i { width: 10px; height: 10px; border-radius: 3px; }
+.bcol h3 span { font-family: var(--mono); color: var(--muted); font-weight: 500; }
+.tk { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 9px 11px; display: grid; gap: 4px; text-align: left; width: 100%; }
+.tk .r1 { display: flex; align-items: baseline; gap: 8px; }
+.tk .t { font-family: var(--mono); font-size: 13px; color: var(--muted); }
+.tk b { font-size: 15px; }
+.tk .r2 { display: flex; flex-wrap: wrap; gap: 4px; font-size: 12px; color: var(--muted); align-items: center; }
+.tk.late { border-color: var(--warn); }
+.tk .flag { color: var(--bad); font-weight: 600; }
+.ltb { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; overflow-x: auto; }
+.ltb table { border-collapse: collapse; width: 100%; min-width: 760px; font-size: 14px; }
+.ltb th, .ltb td { padding: 9px 12px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
+.ltb th { font-size: 12px; color: var(--muted); font-weight: 600; background: var(--bg); }
+.ltb tr:last-child td { border-bottom: 0; }
+.ltb tbody tr { cursor: pointer; }
+.ltb tbody tr:hover td { background: var(--bg); }
+.ltb tr.hl td { background: var(--warn-soft); }
+.ltb td.mono { font-family: var(--mono); font-size: 13.5px; }
+.ic3 { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 7px; font-size: 13px; font-weight: 700; }
+.i-ok { background: var(--ok-soft); color: var(--ok); } .i-no { background: var(--bad-soft); color: var(--bad); }
+.i-mid { background: var(--warn-soft); color: var(--warn); } .i-none { background: var(--done-soft); color: var(--muted); }
+.sheet-bg { position: fixed; inset: 0; z-index: 30; background: rgba(10,20,25,.45); display: grid; place-items: end center; padding: 16px max(12px, env(safe-area-inset-right, 0px)) calc(12px + env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px)); }
+@media (min-width: 700px) { .sheet-bg { place-items: center; } }
+.sheet { width: 100%; max-width: 520px; max-height: 88vh; overflow-y: auto; border-radius: 16px; position: relative; }
+.sheet .card { border: 0; }
+.sheet-x { position: sticky; top: 0; z-index: 2; display: flex; justify-content: flex-end; padding: 8px 8px 0; background: var(--surface); }
+.sheet-x button { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 6px 14px; font-weight: 600; font-size: 13.5px; }
+
 /* ---------- 원장 탭 ---------- */
 .tabs { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; margin: 0 -4px; padding: 0 4px; }
 .tabs::-webkit-scrollbar { display: none; }
@@ -364,6 +422,7 @@ tr.quit td { color: var(--muted); }
   <div class="wrap">
     <div class="banner" id="banner" hidden></div>
     <div id="view-today">
+      <div class="ov" id="overview"></div>
       <section class="notice" id="notice" hidden></section>
       <div class="grid" id="grid"></div>
       <div class="empty" id="empty" hidden></div>
@@ -559,12 +618,14 @@ tr.quit td { color: var(--muted); }
   }
   var FILTERS = [
     ['all', '전체', function (s) { return s.k !== 'cancel'; }],
-    ['wait', '안 옴', function (s) { return s.k === 'late' || s.k === 'start' || s.k === 'plan'; }],
-    ['in', '재실', function (s) { return s.k === 'in'; }],
-    ['out', '하원', function (s) { return s.k === 'out'; }],
-    ['abs', '결석', function (s) { return s.k === 'abs'; }],
+    ['wait', '안 옴', function (s) { return s.k === 'late' || s.k === 'start' || s.k === 'plan'; }, 'hide'],
+    ['in', '재실', function (s) { return s.k === 'in'; }, 'hide'],     // 재실·하원·결석은 위 숫자(A)로 고름
+    ['out', '하원', function (s) { return s.k === 'out'; }, 'hide'],
+    ['abs', '결석', function (s) { return s.k === 'abs'; }, 'hide'],
     ['cancel', '취소', function (s) { return s.k === 'cancel'; }],
-    ['boss', '원장 지시', function (s, r) { return !!r.boss && s.k !== 'cancel'; }]
+    ['boss', '원장 지시', function (s, r) { return !!r.boss && s.k !== 'cancel'; }],
+    ['plan', '예정', function (s) { return s.k === 'plan' || s.k === 'start'; }, 'hide'],
+    ['late', '미도착', function (s) { return s.k === 'late'; }, 'hide']
   ];
   try { var saved = localStorage.getItem('pif_filter'); if (saved) state.filter = saved; } catch (e) {}
 
@@ -572,6 +633,7 @@ tr.quit td { color: var(--muted); }
   function renderFilters() {
     var html = FILTERS.map(function (f) {
       var n = state.rows.filter(function (r) { return f[2](status(r), r); }).length;
+      if (f[3] === 'hide') return '';
       if ((f[0] === 'cancel' || f[0] === 'boss') && !n) return '';
       if (f[0] === 'boss') {
         var un = state.rows.filter(function (r) { return r.boss && !r.bossAck && status(r).k !== 'cancel'; }).length;
@@ -709,17 +771,121 @@ tr.quit td { color: var(--muted); }
       var card = act.closest('.card');
       keep = { k: card && card.dataset.k, f: act.dataset.text, v: act.value, s: act.selectionStart };
     }
-    $('grid').innerHTML = list.map(cardHTML).join('');
+    var g = $('grid');
+    g.className = state.layout === 'card' ? 'grid' : '';
+    g.innerHTML = (state.layout === 'board' ? boardHTML(list) : state.layout === 'list' ? listHTML(list) : list.map(cardHTML).join('')) + sheetHTML();
+    renderOverview();
     if (keep) {
       var el = document.querySelector('.card[data-k="' + cssEsc(keep.k) + '"] [data-text="' + keep.f + '"]');
       if (el) { el.value = keep.v; el.focus(); try { el.setSelectionRange(keep.s, keep.s); } catch (e) {} }
     }
     var e = $('empty');
-    e.hidden = list.length > 0;
+    e.hidden = list.length > 0 || state.layout === 'board';
     if (!list.length) e.textContent = state.rows.length ? '이 보기에 해당하는 학생이 없습니다.' : '오늘 클리닉 학생이 없습니다. 시트에서 "오늘 탭 새로고침"을 눌렀는지 확인해 주세요.';
     renderFilters();
   }
   function cssEsc(s) { return (window.CSS && CSS.escape) ? CSS.escape(s) : String(s).replace(/"/g, '\\"'); }
+
+  // ---------- 한눈에 보기 ----------
+  state.layout = 'card'; state.sheetK = null;
+  try { var lay = localStorage.getItem('pif_layout'); if (lay === 'board' || lay === 'list') state.layout = lay; } catch (e) {}
+  function busyNow() { var a = document.activeElement; return pendingCount() > 0 || (a && a.dataset && a.dataset.text); }
+  var GROUPS = [['plan', '예정', 'var(--line)', function (k) { return k === 'plan' || k === 'start'; }],
+                ['late', '미도착', 'var(--warn)', function (k) { return k === 'late'; }],
+                ['in', '재실', 'var(--ok)', function (k) { return k === 'in'; }],
+                ['out', '하원', 'var(--muted)', function (k) { return k === 'out'; }],
+                ['abs', '결석', 'var(--bad)', function (k) { return k === 'abs'; }]];
+  function alertsOf() {
+    var a = [], n = nowMin();
+    state.rows.forEach(function (r) {
+      var s = status(r), k = key(r), t = mins(r.time);
+      if (s.k === 'cancel') return;
+      if (s.k === 'late') a.push({ k: k, c: 'bad', i: '!', b: r.name + ' 미도착 ' + (n - t) + '분', m: r.nudge === 'wait' ? '알림 발송 대기 중' : r.nudge === 'sent' ? '알림 보냄 · 연락 확인' : '미도착 알림 보내기 →' });
+      if (r.boss && !r.bossAck) a.push({ k: k, c: 'warn', i: '✎', b: r.name + ' 원장 지시 미확인', m: '카드에서 [확인했어요]' });
+      if ((s.k === 'in' || s.k === 'out') && needReason(r) && !r.special) a.push({ k: k, c: 'warn', i: '?', b: r.name + ' 미완 사유 없음', m: '학부모 문자에 사유가 빠져요' });
+      if (s.k === 'in' && t != null && n - t >= 150) a.push({ k: k, c: 'warn', i: '⏱', b: r.name + ' ' + Math.floor((n - t) / 60) + '시간 ' + ((n - t) % 60) + '분째 재실', m: '하원 처리를 잊지 않았나요?' });
+    });
+    return a.filter(function (x) { return x.c === 'bad'; }).concat(a.filter(function (x) { return x.c !== 'bad'; }));
+  }
+  function renderOverview() {
+    var el = $('overview'); if (!el) return;
+    var rows = state.rows.filter(function (r) { return status(r).k !== 'cancel'; });
+    if (!rows.length) { el.innerHTML = ''; return; }
+    var cnt = GROUPS.map(function (g) { return rows.filter(function (r) { return g[3](status(r).k); }).length; });
+    var done = cnt[3] + cnt[4];
+    var h = '<section class="sum" aria-label="진행 요약"><div class="sum-h"><span class="cap">오늘 <b>' + rows.length + '명</b> 중 <b>' + done + '명</b> 끝 (' + Math.round(done / rows.length * 100) + '%) · 지금 재실 <b>' + cnt[2] + '명</b></span>' +
+      '<span class="lay" role="group" aria-label="보기 방식">' + [['card', '카드'], ['board', '칸'], ['list', '목록']].map(function (x) {
+        return '<button type="button" data-lay="' + x[0] + '" aria-pressed="' + (state.layout === x[0]) + '">' + x[1] + '</button>'; }).join('') + '</span></div>' +
+      '<div class="nums">' + GROUPS.map(function (g, i) {
+        return '<button class="num" type="button" data-num="' + g[0] + '" aria-pressed="' + (state.filter === g[0]) + '"><b>' + cnt[i] + '</b><span><i style="background:' + g[2] + '"></i>' + g[1] + '</span></button>'; }).join('') + '</div>' +
+      '<div class="pbar">' + [3, 2, 1, 4, 0].map(function (i) { return cnt[i] ? '<div title="' + GROUPS[i][1] + ' ' + cnt[i] + '명" style="flex:' + cnt[i] + ';background:' + GROUPS[i][2] + '"></div>' : ''; }).join('') + '</div></section>';
+    var al = alertsOf();
+    h += '<div class="alerts" aria-label="지금 확인할 것">' + (al.length ? al.map(function (x) {
+      return '<button class="al ' + x.c + '" type="button" data-go="' + esc(x.k) + '"><span class="ic">' + x.i + '</span><span><b>' + esc(x.b) + '</b><small>' + esc(x.m) + '</small></span></button>';
+    }).join('') : '<span class="none">✓ 지금 확인할 것이 없습니다.</span>') + '</div>';
+    el.innerHTML = h;
+  }
+  function boardHTML(list) {
+    var shown = state.filter === 'plan' || state.filter === 'late' || state.filter === 'in' || state.filter === 'out' || state.filter === 'abs'
+      ? GROUPS.filter(function (g) { return g[0] === state.filter; }) : GROUPS;
+    return '<div class="board" style="grid-template-columns:repeat(' + shown.length + ',minmax(190px,1fr))">' + shown.map(function (g) {
+      var mine = list.filter(function (r) { return g[3](status(r).k); });
+      return '<div class="bcol"><h3><i style="background:' + g[2] + '"></i>' + g[1] + '<span>' + mine.length + '</span></h3>' + mine.map(function (r) {
+        var s = status(r), bits = [];
+        if (r.wb) bits.push('워크북 ' + r.wb); if (r.extra) bits.push('실전 ' + r.extra); if (r.retest) bits.push('재시 ' + r.retest);
+        return '<button class="tk' + (s.k === 'late' ? ' late' : '') + '" type="button" data-open="' + esc(key(r)) + '"><span class="r1"><span class="t">' + esc(r.time) + '</span><b>' + esc(r.name) + '</b></span>' +
+          '<span class="r2">' + (r.cls ? '<span class="chip" style="background:' + esc(r.color || '') + '">' + esc(r.cls) + '</span>' : '') +
+          (s.k === 'late' ? '<span class="flag">+' + (nowMin() - mins(r.time)) + '분</span>' : '') + (r.out ? '<span>' + esc(r.out) + ' 하원</span>' : '') +
+          (bits.length ? '<span>' + esc(bits.join(' · ')) + '</span>' : '') + (r.boss && !r.bossAck ? '<span class="flag">지시</span>' : '') + '</span></button>';
+      }).join('') + '</div>';
+    }).join('') + '</div>';
+  }
+  function icon(v, good, mid) {
+    if (!v) return '<span class="ic3 i-none">·</span>';
+    if (v === good) return '<span class="ic3 i-ok" title="' + esc(v) + '">✓</span>';
+    if (mid.indexOf(v) !== -1) return '<span class="ic3 i-mid" title="' + esc(v) + '">△</span>';
+    return '<span class="ic3 i-no" title="' + esc(v) + '">✕</span>';
+  }
+  function listHTML(list) {
+    if (!list.length) return '';
+    return '<div class="ltb"><table><thead><tr><th>시간</th><th>이름</th><th>반</th><th>상태</th><th>워크북</th><th>실전</th><th>재시</th><th>영상</th><th>하원</th><th>확인할 것</th></tr></thead><tbody>' +
+      list.map(function (r) {
+        var s = status(r), memo = [];
+        if (r.boss && !r.bossAck) memo.push('원장 지시');
+        if (needReason(r) && !r.special) memo.push('미완 사유');
+        return '<tr class="' + (s.k === 'late' ? 'hl' : '') + '" data-open="' + esc(key(r)) + '"><td class="mono">' + esc(r.time) + '</td><td><b>' + esc(r.name) + '</b></td>' +
+          '<td>' + (r.cls ? '<span class="chip" style="background:' + esc(r.color || '') + '">' + esc(r.cls) + '</span>' : '') + '</td><td><span class="pill ' + s.c + '">' + esc(s.t) + '</span></td>' +
+          '<td>' + icon(r.wb, '완료', ['미지참']) + '</td><td>' + icon(r.extra, '완료', ['받아감']) + '</td><td>' + icon(r.retest, '통과', ['미실시']) + '</td>' +
+          '<td>' + (r.video ? '<span class="ic3 i-ok">✓</span>' : '<span class="ic3 i-none">·</span>') + '</td><td class="mono">' + esc(r.out || '—') + '</td>' +
+          '<td style="color:var(--bad);font-size:13px">' + memo.join(' · ') + '</td></tr>';
+      }).join('') + '</tbody></table></div>';
+  }
+  function sheetHTML() {
+    if (state.layout === 'card' || !state.sheetK) return '';
+    var r = findRow(state.sheetK); if (!r) { state.sheetK = null; return ''; }
+    return '<div class="sheet-bg" data-sheet-bg><div class="sheet"><div class="sheet-x"><button type="button" data-sheet-close>닫기</button></div>' + cardHTML(r) + '</div></div>';
+  }
+  function openStudent(k) {
+    state.open[k] = true;
+    if (state.layout === 'card') {
+      if (state.filter !== 'all') { state.filter = 'all'; try { localStorage.setItem('pif_filter', 'all'); } catch (e) {} }
+      state.q = ''; $('q').value = '';
+      render();
+      var c = document.querySelector('.card[data-k="' + cssEsc(k) + '"]');
+      if (c) { c.scrollIntoView({ behavior: 'smooth', block: 'center' }); c.classList.add('flash'); setTimeout(function () { c.classList.remove('flash'); }, 1600); }
+    } else { state.sheetK = k; render(); }
+  }
+  $('overview').addEventListener('click', function (ev) {
+    var b = ev.target.closest('button'); if (!b) return;
+    if (b.dataset.lay) { state.layout = b.dataset.lay; state.sheetK = null; try { localStorage.setItem('pif_layout', state.layout); } catch (e) {} render(); return; }
+    if (b.dataset.num) { state.filter = state.filter === b.dataset.num ? 'all' : b.dataset.num; try { localStorage.setItem('pif_filter', state.filter); } catch (e) {} render(); return; }
+    if (b.dataset.go) openStudent(b.dataset.go);
+  });
+  $('grid').addEventListener('click', function (ev) {
+    if (ev.target.closest('[data-sheet-close]') || ev.target.hasAttribute('data-sheet-bg')) { state.sheetK = null; render(); return; }
+    var o = ev.target.closest('[data-open]'); if (o) openStudent(o.dataset.open);
+  });
+  document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape' && state.sheetK) { state.sheetK = null; render(); } });
 
   function setHeader() {
     var d = state.date || state.today;
@@ -824,6 +990,8 @@ tr.quit td { color: var(--muted); }
     el.parentNode.replaceChild(fresh, el);
     if (keep) { var inp = fresh.querySelector('[data-text="' + keep.f + '"]'); if (inp) { inp.value = keep.v; inp.focus(); try { inp.setSelectionRange(keep.s, keep.s); } catch (e) {} } }
     renderFilters();
+    if (state.layout !== 'card' && !busyNow()) { render(); return; }   // 칸·목록 보기는 이름표 위치도 바꿈
+    renderOverview();
   }
   function hhmm() { var d = new Date(); return pad(d.getHours()) + ':' + pad(d.getMinutes()); }
 
