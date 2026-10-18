@@ -883,7 +883,18 @@ tr.quit td { color: var(--muted); }
     return esc(bits.join(' · ') || (r.att ? r.att : '아직 기록 없음'));
   }
 
+  // 입력 중인 글칸이 있으면 화면을 다시 그리지 않음 (모바일 키보드가 내려가며 쓰던 글이 저장되는 문제 방지)
+  function typingIn(root) {
+    var a = document.activeElement;
+    return !!(a && root && root.contains(a) && (a.tagName === 'TEXTAREA' || (a.tagName === 'INPUT' && /^(text|search|number|tel|password|)$/.test(a.type || ''))));
+  }
+  state.deferred = false;
+  document.addEventListener('focusout', function () {
+    setTimeout(function () { if (state.deferred && !typingIn($('grid'))) { state.deferred = false; render(); } }, 80);
+  }, true);
+
   function render() {
+    if (typingIn($('grid'))) { state.deferred = true; renderFilters(); renderOverview(); return; }
     var f = FILTERS.filter(function (x) { return x[0] === state.filter; })[0] || FILTERS[0];
     var q = state.q.trim();
     var list = state.rows.filter(function (r) {
@@ -1219,10 +1230,14 @@ tr.quit td { color: var(--muted); }
     return p;
   }
   // 카드 한 장만 다시 그리기 (다른 카드를 누르는 중이어도 영향 없음)
-  function renderCard(k) {
+  // 카드 다시 그리기는 잠깐 모았다가 처리 (다른 칸으로 포커스가 옮겨 간 뒤에 판단)
+  var rcQ = {}, rcT = null;
+  function renderCard(k) { rcQ[k] = 1; if (!rcT) rcT = setTimeout(function () { rcT = null; var ks = Object.keys(rcQ); rcQ = {}; ks.forEach(renderCardNow); }, 40); }
+  function renderCardNow(k) {
     var el = document.querySelector('.card[data-k="' + cssEsc(k) + '"]');
     var r = findRow(k);
     if (!el || !r) { render(); return; }
+    if (typingIn(el)) { state.deferred = true; renderFilters(); renderOverview(); return; }
     var act = document.activeElement, keep = null;
     if (act && el.contains(act) && act.dataset && act.dataset.text) keep = { f: act.dataset.text, v: act.value, s: act.selectionStart };
     var tmp = document.createElement('div');
@@ -1305,7 +1320,10 @@ tr.quit td { color: var(--muted); }
     });
   }
   $('grid').addEventListener('focusout', function (ev) { if (ev.target.dataset && ev.target.dataset.text) commitText(ev.target); });
-  $('grid').addEventListener('keydown', function (ev) { if (ev.key === 'Enter' && ev.target.dataset && ev.target.dataset.text) { ev.preventDefault(); ev.target.blur(); } });
+  $('grid').addEventListener('keydown', function (ev) {
+    if (ev.isComposing || ev.keyCode === 229) return;   // 한글 조합 중 Enter는 무시
+    if (ev.key === 'Enter' && ev.target.dataset && ev.target.dataset.text && ev.target.tagName === 'INPUT') { ev.preventDefault(); ev.target.blur(); }
+  });
 
   $('filters').addEventListener('click', function (ev) {
     var b = ev.target.closest('.f'); if (!b) return;
@@ -1532,7 +1550,15 @@ tr.quit td { color: var(--muted); }
       return false;
     }
     // 다시 그려도 입력 중인 칸·펼친 미리보기 유지
+    var deferredPaint = {};
+    document.addEventListener('focusout', function () {
+      setTimeout(function () {
+        Object.keys(deferredPaint).forEach(function (id) { var el = $(id); if (el && !typingIn(el)) { var h = deferredPaint[id]; delete deferredPaint[id]; paint(el, h); } });
+      }, 80);
+    }, true);
     function paint(el, html) {
+      if (typingIn(el)) { deferredPaint[el.id] = html; return; }   // 입력 중이면 끝난 뒤에 그림
+      delete deferredPaint[el.id];
       var a = document.activeElement, keep = null;
       if (a && el.contains(a) && a.dataset && a.dataset.fk) keep = { k: a.dataset.fk, v: a.value, s: a.selectionStart, tag: a.tagName };
       var openPv = {};
@@ -1774,6 +1800,7 @@ tr.quit td { color: var(--muted); }
     $('view-lesson').addEventListener('change', function (ev) { if (ev.target.tagName === 'SELECT') lessonCommit(ev.target); });
     $('view-lesson').addEventListener('focusout', function (ev) { var t = ev.target; if (t.tagName !== 'SELECT' && (t.dataset.lc || t.dataset.ls)) lessonCommit(t); });
     $('view-lesson').addEventListener('keydown', function (ev) {
+      if (ev.isComposing || ev.keyCode === 229) return;
       if (ev.key === 'Enter' && ev.target.tagName === 'INPUT') { ev.preventDefault(); ev.target.blur(); }
       else if ((ev.key === 'Enter' || ev.key === ' ') && (ev.target.classList.contains('lhead') || ev.target.classList.contains('lst-tk'))) { ev.preventDefault(); ev.target.click(); }
     });
@@ -2013,7 +2040,7 @@ tr.quit td { color: var(--muted); }
       r.special = t.value.trim();
       run('apiReportReason', [r.row, r.name, r.special], repSet);
     });
-    $('view-report').addEventListener('keydown', function (ev) { if (ev.key === 'Enter' && ev.target.hasAttribute('data-reason')) { ev.preventDefault(); ev.target.blur(); } });
+    $('view-report').addEventListener('keydown', function (ev) { if (ev.isComposing || ev.keyCode === 229) return; if (ev.key === 'Enter' && ev.target.hasAttribute('data-reason')) { ev.preventDefault(); ev.target.blur(); } });
 
     // =========================== 주간 현황 ===========================
     function pct(a, b) { return b ? Math.round(a / b * 100) : null; }
