@@ -231,6 +231,13 @@ main .wrap { padding-block: 14px 40px; }
 .login .err { color: var(--bad); font-size: 13.5px; margin: -6px 0 0; }
 .login .err:empty { display: none; }
 .lg-go { min-height: 50px; font-size: 16px; }
+.lg-inst { display: grid; gap: 10px; justify-items: center; }
+.lg-instbtn { display: inline-flex; align-items: center; gap: 8px; border: 1px solid rgba(255,255,255,.35); background: rgba(255,255,255,.12); color: var(--hero-ink); border-radius: 999px; padding: 10px 18px; font-size: 14.5px; font-weight: 600; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
+.lg-instbtn:hover { background: rgba(255,255,255,.2); }
+.lg-instbtn svg { width: 18px; height: 18px; }
+.lg-howto { width: 100%; background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.25); border-radius: 14px; padding: 12px 14px; color: var(--hero-ink); font-size: 14px; line-height: 1.6; }
+.lg-howto b { color: #9FE6DC; }
+.lg-howto ol { margin: 4px 0 0; padding-left: 20px; }
 .lg-foot { text-align: center; font-size: 12.5px; color: var(--hero-sub); margin: 0; line-height: 1.6; }
 .lg-foot b { color: var(--hero-ink); font-weight: 600; }
 @media (prefers-reduced-motion: reduce) { .lg-roles button { transition: none; } }
@@ -436,13 +443,17 @@ tr.quit td { color: var(--muted); }
       <div class="lg-pw" id="loginWho" hidden><span class="lg-k">이름</span><div class="lg-names" id="loginNames"></div>
         <input class="txt" id="loginName" placeholder="이름" maxlength="20" hidden></div>
       <div class="lg-pw">
-        <label for="loginPw" id="loginPwLab">이름을 먼저 골라 주세요</label>
+        <label for="loginPw" id="loginPwLab">조교인지 원장인지 먼저 골라 주세요</label>
         <div class="lg-field"><input class="txt" id="loginPw" type="password" autocomplete="current-password" placeholder="비밀번호">
           <button class="lg-eye" type="button" id="loginEye" aria-label="비밀번호 보기">보기</button></div>
       </div>
       <p class="err" id="loginErr"></p>
       <button class="btn primary lg-go" id="loginBtn" type="submit" disabled>입장하기</button>
     </form>
+    <div class="lg-inst" id="instBox" hidden>
+      <button type="button" class="lg-instbtn" id="instBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M12 8v6M9.5 11.5 12 14l2.5-2.5M10 18.5h4"/></svg>홈 화면에 앱으로 설치하기</button>
+      <div class="lg-howto" id="instHow" hidden></div>
+    </div>
     <p class="lg-foot">한 번 입장하면 오늘 자정까지 유지됩니다.<br><b>서초 PIF영어학원</b> · 02-525-8584</p>
   </div>
 </section>
@@ -616,6 +627,8 @@ tr.quit td { color: var(--muted); }
     pickedName = auth.staff;
     var td = new Date();
     $('loginDate').textContent = (td.getMonth() + 1) + '월 ' + td.getDate() + '일 (' + DOW[td.getDay()] + ')';
+    $('loginName').hidden = true;
+    role(pickedName === '원장' ? 'boss' : pickedName ? 'staff' : '');   // 서버 응답을 기다리지 않고 바로 고를 수 있게
     call('apiLoginInfo').then(function (info) {
       var all = info.staff || [];
       var names = all.filter(function (n) { return n !== '원장'; });
@@ -632,6 +645,33 @@ tr.quit td { color: var(--muted); }
       if (!info.ready) $('loginErr').textContent = '원장님이 아직 앱 비밀번호를 정하지 않았습니다.';
     }).catch(function (err) { $('loginErr').textContent = errMsg(err); });
   }
+  // ---------- 앱으로 설치하기 (입장 화면) ----------
+  var instEvt = null;
+  var standalone = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
+  var inFrame = (function () { try { return window.top !== window.self; } catch (e) { return true; } })();
+  var UA = navigator.userAgent || '';
+  var isIOS = /iPhone|iPad|iPod/.test(UA) || (/Macintosh/.test(UA) && navigator.maxTouchPoints > 1);
+  var isSamsung = /SamsungBrowser/i.test(UA);
+  function instShow() {
+    var ok = !standalone && (!inFrame || DEMO) && (instEvt || isIOS || isSamsung || DEMO || /Android|Chrome|Edg/.test(UA));
+    $('instBox').hidden = !ok;
+  }
+  window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); instEvt = e; instShow(); });
+  window.addEventListener('appinstalled', function () { instEvt = null; $('instBox').hidden = true; toast('설치했습니다. 홈 화면의 PIF 클리닉 아이콘으로 열어 주세요.'); });
+  $('instBtn').addEventListener('click', function () {
+    if (instEvt) {
+      instEvt.prompt();
+      instEvt.userChoice.then(function () { instEvt = null; }).catch(function () {});
+      return;
+    }
+    var how = $('instHow'), h;
+    if (isIOS) h = '<b>아이폰·아이패드 (사파리)</b><ol><li>화면 아래(아이패드는 위)의 <b>공유</b> 버튼 □↑ 누르기</li><li><b>홈 화면에 추가</b> 누르기</li><li>오른쪽 위 <b>추가</b></li></ol>';
+    else if (isSamsung) h = '<b>삼성 인터넷</b><ol><li>아래 메뉴 ≡ → <b>현재 페이지 추가</b> → <b>홈 화면</b></li></ol>앱처럼 전체 화면으로 쓰려면 <b>크롬</b>에서 이 주소를 열고 설치해 주세요.';
+    else h = '<b>크롬</b><ol><li>오른쪽 위 <b>⋮</b> 메뉴 누르기</li><li><b>앱 설치</b> 또는 <b>홈 화면에 추가</b></li></ol>PC는 주소창 오른쪽의 설치 아이콘을 눌러도 됩니다.';
+    how.innerHTML = h; how.hidden = !how.hidden;
+  });
+  instShow();
+
   function showApp() {
     $('loginView').hidden = true; $('appTop').hidden = false; $('appMain').hidden = false;
     $('whoChip').hidden = !auth.staff; $('whoName').textContent = auth.staff;
