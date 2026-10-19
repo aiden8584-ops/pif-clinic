@@ -77,7 +77,9 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 .sync.err .dot { background: var(--bad); }
 .iconbtn { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 5px 10px; font-size: 13px; }
 
-.filters { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+.filters { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.fsep { width: 1px; height: 22px; background: var(--line); margin: 0 2px; }
+.f.fc i { width: 9px; height: 9px; border-radius: 3px; flex: none; border: 1px solid rgba(0,0,0,.08); }
 .filters::-webkit-scrollbar { display: none; }
 .f { flex: none; border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 6px 12px; font-size: 14px; display: flex; gap: 6px; align-items: center; }
 .f b { font-family: var(--mono); font-weight: 600; font-size: 13px; }
@@ -300,6 +302,10 @@ main .wrap { padding-block: 14px 40px; }
 .ltb table { border-collapse: collapse; width: 100%; min-width: 760px; font-size: 14px; }
 .ltb th, .ltb td { padding: 9px 12px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
 .ltb th { font-size: 12px; color: var(--muted); font-weight: 600; background: var(--bg); }
+.ltb th.srt { cursor: pointer; user-select: none; -webkit-tap-highlight-color: transparent; }
+.ltb th.srt:hover { color: var(--ink); }
+.ltb th.srt.on { color: var(--accent); }
+.ltb th.srt i { font-style: normal; font-size: 9px; margin-left: 3px; display: inline-block; min-width: 8px; }
 .ltb tr:last-child td { border-bottom: 0; }
 .ltb tbody tr { cursor: pointer; }
 .ltb tbody tr:hover td { background: var(--bg); }
@@ -823,6 +829,7 @@ tr.quit td { color: var(--muted); }
     ['late', '미도착', function (s) { return s.k === 'late'; }, 'hide']
   ];
   try { var saved = localStorage.getItem('pif_filter'); if (saved) state.filter = saved; } catch (e) {}
+  state.clsF = '';   // 반 거르기 (화면을 다시 열면 전체로)
 
   // ---------- 그리기 ----------
   function renderFilters() {
@@ -836,6 +843,16 @@ tr.quit td { color: var(--muted); }
       }
       return '<button class="f" type="button" data-f="' + f[0] + '" aria-pressed="' + (state.filter === f[0]) + '">' + f[1] + ' <b>' + n + '</b></button>';
     }).join('');
+    // 반 버튼: 오늘 온 반이 2개 이상일 때만. 누르면 그 반만, 한 번 더 누르면 전체
+    var cm = {}, cl = [];
+    state.rows.forEach(function (r) { if (!r.cls || status(r).k === 'cancel') return; if (!cm[r.cls]) { cm[r.cls] = { n: 0, c: r.color || '' }; cl.push(r.cls); } cm[r.cls].n++; });
+    if (state.clsF && !cm[state.clsF]) state.clsF = '';
+    if (cl.length > 1) {
+      cl.sort(function (a, b) { return a.localeCompare(b, 'ko'); });
+      html += '<span class="fsep" aria-hidden="true"></span>' + cl.map(function (c) {
+        return '<button class="f fc" type="button" data-fc="' + esc(c) + '" aria-pressed="' + (state.clsF === c) + '"><i style="background:' + esc(cm[c].c) + '"></i>' + esc(c) + ' <b>' + cm[c].n + '</b></button>';
+      }).join('');
+    }
     $('filters').innerHTML = html;
   }
 
@@ -966,6 +983,7 @@ tr.quit td { color: var(--muted); }
     var q = state.q.trim();
     var list = state.rows.filter(function (r) {
       if (!f[2](status(r), r)) return false;
+      if (state.clsF && r.cls !== state.clsF) return false;
       return !q || (r.name + ' ' + r.cls + ' ' + r.school).indexOf(q) !== -1;
     }).sort(function (a, b) {
       var sa = status(a).k, sb = status(b).k;
@@ -1157,13 +1175,62 @@ tr.quit td { color: var(--muted); }
     if (mid.indexOf(v) !== -1) return '<span class="ic3 i-mid" title="' + esc(v) + '">△</span>';
     return '<span class="ic3 i-no" title="' + esc(v) + '">✕</span>';
   }
+  // ---- 목록 보기: 제목을 누르면 정렬 (오름 → 내림 → 기본 순서) ----
+  var LCOLS = [['time', '시간'], ['name', '이름'], ['cls', '반'], ['st', '상태'], ['wb', '워크북'], ['extra', '실전'], ['retest', '재시'], ['video', '영상'], ['out', '하원'], ['memo', '확인할 것']];
+  var ST_RANK = { late: 0, start: 1, in: 2, plan: 3, out: 4, abs: 5, cancel: 6 };
+  state.lsort = null;
+  try { var ls0 = JSON.parse(localStorage.getItem('pif_lsort') || 'null'); if (ls0 && ls0.k && (ls0.d === 1 || ls0.d === -1)) state.lsort = ls0; } catch (e) {}
+  function listMemo(r) {
+    var memo = [];
+    if (r.boss && !r.bossAck) memo.push('원장 지시');
+    if (needReason(r) && !r.special) memo.push('미완 사유');
+    return memo;
+  }
+  // 정렬 값 (null = 비어 있음 → 항상 맨 아래). 체크 항목은 문제 있는 학생이 먼저 오도록 순위를 매김
+  function lsortVal(r, k) {
+    var v;
+    switch (k) {
+      case 'time': v = mins(r.time); return v == null ? null : v;
+      case 'name': return r.name || null;
+      case 'cls': return r.cls || null;
+      case 'st': return ST_RANK[status(r).k];
+      case 'wb': return r.wb ? (r.wb === '완료' ? 2 : r.wb === '미지참' ? 1 : 0) : null;
+      case 'extra': return r.extra ? (r.extra === '완료' ? 2 : r.extra === '받아감' ? 1 : 0) : null;
+      case 'retest': return r.retest ? (r.retest === '통과' ? 2 : r.retest === '미실시' ? 1 : 0) : null;
+      case 'video': return r.video ? 0 : null;
+      case 'out': return r.out || null;
+      case 'memo': v = listMemo(r).length; return v ? -v : null;
+    }
+    return null;
+  }
+  function lsorted(list) {
+    var o = state.lsort; if (!o) return list;
+    return list.slice().sort(function (a, b) {
+      var x = lsortVal(a, o.k), y = lsortVal(b, o.k);
+      if (x !== y) {
+        if (x == null) return 1; if (y == null) return -1;
+        var c = typeof x === 'string' ? x.localeCompare(y, 'ko') : x - y;
+        if (c) return c * o.d;
+      }
+      return (mins(a.time) || 0) - (mins(b.time) || 0) || a.name.localeCompare(b.name, 'ko');
+    });
+  }
+  function lsortClick(k) {
+    var o = state.lsort;
+    state.lsort = !o || o.k !== k ? { k: k, d: 1 } : o.d === 1 ? { k: k, d: -1 } : null;
+    try { if (state.lsort) localStorage.setItem('pif_lsort', JSON.stringify(state.lsort)); else localStorage.removeItem('pif_lsort'); } catch (e) {}
+    render();
+  }
   function listHTML(list) {
     if (!list.length) return '';
-    return '<div class="ltb"><table><thead><tr><th>시간</th><th>이름</th><th>반</th><th>상태</th><th>워크북</th><th>실전</th><th>재시</th><th>영상</th><th>하원</th><th>확인할 것</th></tr></thead><tbody>' +
-      list.map(function (r) {
-        var s = status(r), memo = [];
-        if (r.boss && !r.bossAck) memo.push('원장 지시');
-        if (needReason(r) && !r.special) memo.push('미완 사유');
+    var o = state.lsort;
+    return '<div class="ltb"><table><thead><tr>' + LCOLS.map(function (c) {
+        var on = o && o.k === c[0];
+        return '<th class="srt' + (on ? ' on' : '') + '" data-sort="' + c[0] + '" role="button" tabindex="0" aria-sort="' + (on ? (o.d === 1 ? 'ascending' : 'descending') : 'none') + '">' +
+          c[1] + '<i>' + (on ? (o.d === 1 ? '▲' : '▼') : '') + '</i></th>';
+      }).join('') + '</tr></thead><tbody>' +
+      lsorted(list).map(function (r) {
+        var s = status(r), memo = listMemo(r);
         return '<tr class="' + (s.k === 'late' ? 'hl' : '') + '" data-open="' + esc(key(r)) + '"><td class="mono">' + esc(r.time) + '</td><td><b>' + esc(r.name) + '</b></td>' +
           '<td>' + (r.cls ? '<span class="chip" style="background:' + esc(r.color || '') + '">' + esc(r.cls) + '</span>' : '') + '</td><td><span class="pill ' + s.c + '">' + esc(s.t) + '</span></td>' +
           '<td>' + icon(r.wb, '완료', ['미지참']) + '</td><td>' + icon(r.extra, '완료', ['받아감']) + '</td><td>' + icon(r.retest, '통과', ['미실시']) + '</td>' +
@@ -1213,7 +1280,7 @@ tr.quit td { color: var(--muted); }
     state.open[k] = true;
     if (state.layout === 'card') {
       if (state.filter !== 'all') { state.filter = 'all'; try { localStorage.setItem('pif_filter', 'all'); } catch (e) {} }
-      state.q = ''; $('q').value = '';
+      state.q = ''; $('q').value = ''; state.clsF = '';
       render();
       var c = document.querySelector('.card[data-k="' + cssEsc(k) + '"]');
       if (c) { c.scrollIntoView({ behavior: 'smooth', block: 'center' }); c.classList.add('flash'); setTimeout(function () { c.classList.remove('flash'); }, 1600); }
@@ -1232,7 +1299,12 @@ tr.quit td { color: var(--muted); }
     var cn = ev.target.closest('[data-cnav]');
     if (cn) { if (cn.disabled) return; var ms = sheetMates(), cur = findRow(state.sheetK), t = ms[ms.indexOf(cur) + Number(cn.dataset.cnav)]; if (t) { state.sheetK = key(t); render(); } return; }
     var nb = ev.target.closest('[data-nudge-on], [data-nudge-off]'); if (nb) { doNudge(nb); return; }
+    var so = ev.target.closest('[data-sort]'); if (so) { lsortClick(so.dataset.sort); return; }
     var o = ev.target.closest('[data-open]'); if (o) openStudent(o.dataset.open);
+  });
+  $('grid').addEventListener('keydown', function (ev) {
+    var so = ev.target.closest && ev.target.closest('[data-sort]');
+    if (so && (ev.key === 'Enter' || ev.key === ' ')) { ev.preventDefault(); lsortClick(so.dataset.sort); }
   });
   document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape' && state.sheetK) { state.sheetK = null; render(); } });
 
@@ -1434,6 +1506,7 @@ tr.quit td { color: var(--muted); }
 
   $('filters').addEventListener('click', function (ev) {
     var b = ev.target.closest('.f'); if (!b) return;
+    if (b.dataset.fc != null) { state.clsF = state.clsF === b.dataset.fc ? '' : b.dataset.fc; render(); return; }
     state.filter = b.dataset.f;
     try { localStorage.setItem('pif_filter', state.filter); } catch (e) {}
     render();
