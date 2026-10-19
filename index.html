@@ -170,6 +170,8 @@ main .wrap { padding-block: 14px 40px; }
 .boss .bl { font-size: 12px; font-weight: 700; color: var(--warn); letter-spacing: .02em; display: flex; justify-content: space-between; gap: 8px; }
 .boss.ack .bl { color: var(--ok); }
 .boss .bt { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 15px; font-weight: 500; }
+.boss .brow { display: flex; align-items: center; gap: 10px; }
+.boss.blank .bbtn { border-color: var(--line); color: var(--ink); }
 .boss .bbtn { justify-self: start; min-height: 38px; padding: 6px 16px; border-radius: 9px; border: 1px solid var(--warn); background: var(--surface); color: var(--warn); font-weight: 700; }
 .boss textarea, .notice textarea { width: 100%; min-height: 64px; resize: vertical; border: 1px solid var(--line); border-radius: 9px; padding: 9px 11px; background: var(--surface); font: inherit; font-size: 14.5px; color: var(--ink); }
 .notice { margin-bottom: 12px; border-radius: 12px; padding: 12px 14px; background: var(--warn-soft); border: 1px solid var(--warn); display: grid; gap: 8px; }
@@ -407,6 +409,14 @@ textarea.txt { resize: vertical; min-height: 64px; line-height: 1.45; }
 .items { display: flex; flex-wrap: wrap; gap: 6px; }
 .items button { border: 1px solid var(--line); background: var(--bg); border-radius: 999px; padding: 5px 11px; font-size: 13px; color: var(--muted); }
 .items button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+/* 학생 공지 첨부 */
+.nfiles { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.nf { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 10px; padding: 5px 6px 5px 10px; font-size: 13px; background: var(--bg); }
+.nf a { color: var(--accent); text-decoration: none; font-weight: 600; }
+.nf button { border: 0; background: none; color: var(--muted); font-size: 14px; padding: 0 4px; }
+.nf.nimg { padding: 0; position: relative; overflow: hidden; width: 64px; height: 64px; }
+.nf.nimg img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.nf.nimg button { position: absolute; right: 2px; top: 2px; background: rgba(0,0,0,.55); color: #fff; border-radius: 50%; width: 20px; height: 20px; font-size: 12px; line-height: 20px; padding: 0; }
 .approve { min-height: 40px; padding: 6px 14px; border-radius: 10px; border: 1px solid var(--warn); background: var(--warn-soft); color: var(--warn); font-weight: 700; }
 .approve[aria-pressed="true"] { border-color: var(--ok); background: var(--ok); color: var(--surface); }
 .sgrid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); align-items: start; padding: 0 14px 14px; }
@@ -901,7 +911,8 @@ tr.quit td { color: var(--muted); }
     if (auth.admin) {
       return '<div class="boss' + (r.bossAck ? ' ack' : r.boss ? '' : ' blank') + '"><div class="bl"><span>원장 지시</span><span>' +
         (r.boss ? (r.bossAck ? '✔ ' + esc(r.bossAck) : '아직 확인 안 함') : '') + '</span></div>' +
-        '<textarea data-text="boss" id="bo-' + r.row + '" maxlength="300" placeholder="이 학생에 대해 조교에게 남길 말">' + esc(r.boss) + '</textarea></div>';
+        '<textarea data-text="boss" id="bo-' + r.row + '" maxlength="300" placeholder="이 학생에 대해 조교에게 남길 말">' + esc(r.boss) + '</textarea>' +
+        '<div class="brow"><button class="bbtn" type="button" data-act="boss-save">저장</button><span class="saved" data-saved="boss"></span></div></div>';
     }
     if (!r.boss) return '';
     return '<div class="boss' + (r.bossAck ? ' ack' : '') + '"><div class="bl"><span>원장 지시</span>' +
@@ -1365,6 +1376,12 @@ tr.quit td { color: var(--muted); }
     if (act === 'open') { state.open[k] = true; renderCard(k); return; }
     if (act === 'close') { state.open[k] = false; renderCard(k); return; }
     if (act === 'msg') { showMsg(r); return; }
+    if (act === 'boss-save') {   // 보통은 칸을 벗어날 때 이미 저장됨. 바뀐 게 없으면 "저장됨"만 보여 줌
+      var bt = card.querySelector('[data-text="boss"]');
+      if (bt && (r.boss || '') !== bt.value.trim()) commitText(bt);
+      else { var bs = card.querySelector('[data-saved="boss"]'); if (bs) { bs.textContent = '저장됨'; setTimeout(function () { bs.textContent = ''; }, 2000); } }
+      return;
+    }
     if (act === 'hist') { state.histOpen[k] = !state.histOpen[k]; renderCard(k); return; }
     if (act === 'video') { var nv2 = !r.video; save(k, 'apiUpdate', ['video', nv2], function (x) { x.video = nv2; }); return; }
     if (act === 'out') {
@@ -1403,8 +1420,10 @@ tr.quit td { color: var(--muted); }
     var v = input.value.trim();
     save(k, 'apiUpdate', [f, v], function (x) { x[f] = v; }).then(function (ok) {
       if (!ok) return;
-      var s = document.querySelector('.card[data-k="' + cssEsc(key(findRow(k) || r)) + '"] [data-saved="' + f + '"]');
-      if (s) { s.textContent = '저장됨'; setTimeout(function () { s.textContent = ''; }, 2000); }
+      setTimeout(function () {   // 저장 뒤 카드를 다시 그리므로(40ms 뒤) 그다음에 표시
+        var s = document.querySelector('.card[data-k="' + cssEsc(key(findRow(k) || r)) + '"] [data-saved="' + f + '"]');
+        if (s) { s.textContent = '저장됨'; setTimeout(function () { s.textContent = ''; }, 2000); }
+      }, 120);
     });
   }
   $('grid').addEventListener('focusout', function (ev) { if (ev.target.dataset && ev.target.dataset.text) commitText(ev.target); });
@@ -1515,7 +1534,8 @@ tr.quit td { color: var(--muted); }
       rebuild();
       var stu = function (row) { return L.students.filter(function (s) { return s.row === row; })[0]; };
       var NOTES = [
-        { row: 3, date: '2026-10-17', target: '서울1,서울2', who: '전체', title: '11월 내신대비 시작 안내', body: '11월 2일(월)부터 서울고 내신대비 기간이 시작됩니다.\n클리닉 결석·날짜 변경은 기간 내 3회까지 가능합니다.', pinned: true, pub: true },
+        { row: 3, date: '2026-10-17', target: '서울1,서울2', who: '전체', title: '11월 내신대비 시작 안내', body: '11월 2일(월)부터 서울고 내신대비 기간이 시작됩니다.\n클리닉 결석·날짜 변경은 기간 내 3회까지 가능합니다.', pinned: true, pub: true,
+          files: [{ id: '1AJYwLbsN_LrZcBcbNz4eHIV1J9XUIzPP', url: 'https://drive.google.com/file/d/1AJYwLbsN_LrZcBcbNz4eHIV1J9XUIzPP/view' }] },
         { row: 2, date: '2026-10-12', target: '전체', who: '학부모', title: '10월 수강료 납부 안내', body: '10월 수강료는 25일까지 납부 부탁드립니다.', pinned: false, pub: true }
       ];
       var Q = { connected: false, requests: [
@@ -1565,10 +1585,14 @@ tr.quit td { color: var(--muted); }
           rebuild(); return { data: clone(L), msg: cls + ' ' + n + '명을 ' + (on ? '발송 제외했습니다. 보낼 학생만 제외를 풀어 주세요.' : '발송 대상으로 되돌렸습니다.') };
         },
         apiNoticeList: function () {
-          return { rows: clone(NOTES), targets: ['전체', '서울고', '서초고', '상문고', '서울1', '서울2', '서초1', '상문1', '고2정시반'], whos: ['전체', '학생', '학부모'] };
+          return { rows: clone(NOTES), targets: ['전체', '서울고', '서초고', '상문고', '서울1', '서울2', '서초1', '상문1', '고2정시반'], whos: ['전체', '학생', '학부모'],
+            students: ['(예시) 박서연', '(예시) 정민재', '(예시) 김하준', '(예시) 이서윤'], canAttach: true };
         },
         apiNoticeSave: function (row, d) {
           if (!d.title || !d.body) throw new Error('제목과 내용을 입력해 주세요.');
+          d = Object.assign({}, d);   // 미리보기: 새 사진은 가짜 링크로
+          d.files = (d.files || []).concat((d.photos || []).map(function (p, i) { var id = 'demo' + Date.now() + i + 'xxxxxxxxxxxxxxxxxxxx'; return { id: id, url: '#' + id }; }));
+          delete d.photos;
           if (row) { var n = NOTES.filter(function (x) { return x.row === row; })[0]; Object.assign(n, d, { row: row }); }
           else NOTES.unshift(Object.assign({}, d, { row: 100 + NOTES.length, date: ymd(new Date()) }));
           NOTES.sort(function (a, b) { return (b.pinned - a.pinned) || String(b.date).localeCompare(String(a.date)); });
@@ -2299,13 +2323,24 @@ tr.quit td { color: var(--muted); }
         '<span class="act"><button class="btn primary" type="button" data-nn="new">＋ 새 공지 쓰기</button></span></div>';
       if (V.nedit) {
         var e = V.nedit, tg = String(e.target || '전체').split(',');
+        var stuTg = tg.filter(function (t) { return t && N.targets.indexOf(t) < 0; });   // 학생 이름으로 고른 대상
+        var files = e.files || [], nph = V.nph || [];
         h += '<form class="panel rform" id="nform"><h3>' + (e.row ? '공지 고치기' : '새 공지') + '</h3>' +
           '<div class="row"><span class="lab"><span>누구에게</span><span>여러 개 고를 수 있음</span></span><div class="items" id="ntg">' +
-          N.targets.map(function (t) { return '<button type="button" data-ntg="' + esc(t) + '" aria-pressed="' + (tg.indexOf(t) >= 0) + '">' + esc(t) + '</button>'; }).join('') + '</div></div>' +
+          N.targets.map(function (t) { return '<button type="button" data-ntg="' + esc(t) + '" aria-pressed="' + (tg.indexOf(t) >= 0) + '">' + esc(t) + '</button>'; }).join('') +
+          stuTg.map(function (t) { return '<button type="button" data-ntg="' + esc(t) + '" aria-pressed="true">👤 ' + esc(t) + ' ✕</button>'; }).join('') + '</div></div>' +
+          (N.students && N.students.length ? '<label class="row"><span class="lab"><span>학생 찾기</span><span>이름을 치고 골라서 추가</span></span>' +
+            '<input class="txt" id="nstu" list="nstuList" autocomplete="off" placeholder="예: 김진우"><datalist id="nstuList">' +
+            N.students.map(function (s) { return '<option value="' + esc(s) + '">'; }).join('') + '</datalist></label>' : '') +
           '<div class="row"><span class="lab"><span>보는 사람</span></span><div class="seg" id="nwho">' +
           N.whos.map(function (w) { return '<button type="button" data-nwho="' + esc(w) + '" aria-pressed="' + (e.who === w) + '">' + esc(w) + '</button>'; }).join('') + '</div></div>' +
           '<label class="row"><span class="lab"><span>제목</span></span><input class="txt" id="ntitle" data-fk="n|title" maxlength="100" value="' + esc(e.title) + '" placeholder="예: 11월 내신대비 일정 안내"></label>' +
           '<label class="row"><span class="lab"><span>내용</span></span><textarea class="txt" id="nbody" data-fk="n|body" maxlength="2000" style="min-height:140px" placeholder="학생·학부모 앱에 그대로 보입니다">' + esc(e.body) + '</textarea></label>' +
+          (N.canAttach ? '<div class="row"><span class="lab"><span>사진</span><span>공지 하나에 5개까지 · 앱 공지 안에 보임</span></span><div class="nfiles">' +
+            files.map(function (f, i) { return '<span class="nf"><a href="' + esc(f.url) + '" target="_blank" rel="noopener">📎 첨부 ' + (i + 1) + '</a><button type="button" data-nfdel="' + i + '" aria-label="첨부 빼기">✕</button></span>'; }).join('') +
+            nph.map(function (p, i) { return '<span class="nf nimg"><img src="' + p.url + '" alt="새 사진 ' + (i + 1) + '"><button type="button" data-nphdel="' + i + '" aria-label="사진 빼기">✕</button></span>'; }).join('') +
+            (files.length + nph.length < 5 && nph.length < 3 ? '<button type="button" class="btn ghost" data-nn="photo" style="flex:0 0 auto">＋ 사진</button>' : '') +
+            '<input type="file" id="nfile" accept="image/*" multiple hidden></div></div>' : '') +
           '<div style="display:flex;gap:18px;flex-wrap:wrap"><label class="chk"><input type="checkbox" id="npin"' + (e.pinned ? ' checked' : '') + '> 맨 위에 고정</label>' +
           '<label class="chk"><input type="checkbox" id="npub"' + (e.pub !== false ? ' checked' : '') + '> 공개 (끄면 앱에서 숨김)</label></div>' +
           '<div class="act"><button class="btn ghost" type="button" data-nn="cancel">닫기</button><button class="btn primary" type="submit">' + (e.row ? '저장' : '게시하기') + '</button></div></form>';
@@ -2314,7 +2349,7 @@ tr.quit td { color: var(--muted); }
       h += N.rows.length ? '<div class="panel">' + N.rows.map(function (n) {
         return '<div class="req ncard' + (n.pub ? '' : ' off') + '" data-row="' + n.row + '"><div class="rt">' + (n.pinned ? '<span class="pill s-start">📌 고정</span>' : '') +
           '<b>' + esc(n.title) + '</b>' + (n.pub ? '' : '<span class="pill s-out">비공개</span>') + '</div>' +
-          '<div class="small">' + esc(n.date) + ' · ' + esc(n.target) + ' · ' + esc(n.who) + '</div>' +
+          '<div class="small">' + esc(n.date) + ' · ' + esc(n.target) + ' · ' + esc(n.who) + (n.files && n.files.length ? ' · 📎 ' + n.files.length : '') + '</div>' +
           '<div class="why" style="white-space:pre-wrap">' + esc(n.body.length > 160 ? n.body.slice(0, 160) + '…' : n.body) + '</div>' +
           '<div class="act" style="max-width:none"><button class="btn ghost" type="button" data-nn="edit">고치기</button>' +
           '<button class="btn ghost" type="button" data-nn="pin">' + (n.pinned ? '고정 풀기' : '맨 위 고정') + '</button>' +
@@ -2339,11 +2374,14 @@ tr.quit td { color: var(--muted); }
         e.target = list.join(','); drawNotice(); return;
       }
       if (b.dataset.nwho) { var e2 = nRead(); e2.who = b.dataset.nwho; drawNotice(); return; }
+      if (b.dataset.nfdel != null) { var e3 = nRead(); e3.files = (e3.files || []).slice(); e3.files.splice(+b.dataset.nfdel, 1); drawNotice(); return; }
+      if (b.dataset.nphdel != null) { nRead(); V.nph.splice(+b.dataset.nphdel, 1); drawNotice(); return; }
       var a = b.dataset.nn; if (!a) return;
-      if (a === 'new') { V.nedit = nBlank(); drawNotice(); window.scrollTo(0, 0); setTimeout(function () { var t = $('ntitle'); if (t) t.focus(); }, 50); return; }
-      if (a === 'cancel') { V.nedit = null; drawNotice(); return; }
+      if (a === 'photo') { $('nfile').click(); return; }
+      if (a === 'new') { V.nedit = nBlank(); V.nph = []; drawNotice(); window.scrollTo(0, 0); setTimeout(function () { var t = $('ntitle'); if (t) t.focus(); }, 50); return; }
+      if (a === 'cancel') { V.nedit = null; V.nph = []; drawNotice(); return; }
       var row = +b.closest('.ncard').dataset.row, n = V.NT.rows.filter(function (x) { return x.row === row; })[0]; if (!n) return;
-      if (a === 'edit') { V.nedit = Object.assign({}, n); drawNotice(); window.scrollTo(0, 0); return; }
+      if (a === 'edit') { V.nedit = Object.assign({}, n, { files: (n.files || []).slice() }); V.nph = []; drawNotice(); window.scrollTo(0, 0); return; }
       var d = Object.assign({}, n);
       if (a === 'pin') d.pinned = !n.pinned;
       if (a === 'pub') { if (n.pub && !sure(b, '한 번 더 누르면 숨김')) return; d.pub = !n.pub; }
@@ -2357,11 +2395,59 @@ tr.quit td { color: var(--muted); }
       if (!e.body.trim()) { toast('내용을 입력해 주세요.', true); return; }
       var orig = e.row ? (V.NT.rows.filter(function (x) { return x.row === e.row; })[0] || {}).title : '';
       var btn = ev.target.querySelector('button[type=submit]'); btn.disabled = true;
-      run('apiNoticeSave', [e.row || 0, e, orig || ''], function (res) {
+      var d = Object.assign({}, e, { files: e.files || [], photos: (V.nph || []).map(function (p) { return { mime: p.mime, b64: p.b64 }; }) });
+      if (d.photos.length) btn.textContent = '사진 올리는 중…';
+      run('apiNoticeSave', [e.row || 0, d, orig || ''], function (res) {
         if (!res) { btn.disabled = false; return; }
-        V.nedit = null; ntSet(res);
+        V.nedit = null; V.nph = []; ntSet(res);
       });
     });
+    // 학생 찾기: 목록에 있는 이름을 고르면 대상에 추가
+    function nAddStu() {
+      var inp = $('nstu'); if (!inp) return;
+      var name = inp.value.trim(); if (!name) return;
+      if ((V.NT.students || []).indexOf(name) < 0) { toast('목록에 있는 학생 이름을 골라 주세요.', true); return; }
+      var e = nRead(), list = String(e.target || '').split(',').filter(function (x) { return x && x !== '전체'; });
+      if (list.indexOf(name) < 0) list.push(name);
+      e.target = list.join(',');
+      inp.value = ''; inp.blur();   // 입력 중이면 화면을 다시 그리지 않으므로(paint) 먼저 칸에서 나감
+      drawNotice();
+    }
+    $('view-notice').addEventListener('change', function (ev) {
+      if (ev.target.id === 'nstu') { nAddStu(); return; }
+      if (ev.target.id !== 'nfile') return;
+      V.nph = V.nph || [];
+      var files = Array.prototype.slice.call(ev.target.files || []), e = nRead();
+      var room = Math.min(3 - V.nph.length, 5 - (e.files || []).length - V.nph.length);
+      ev.target.value = '';
+      files.slice(0, Math.max(0, room)).reduce(function (p, f) {
+        return p.then(function () { return nShrink(f).then(function (x) { V.nph.push(x); }, function (err) { toast(err.message, true); }); });
+      }, Promise.resolve()).then(function () { drawNotice(); });
+    });
+    // 목록에서 고르면(또는 이름을 정확히 다 치면) 바로 추가
+    $('view-notice').addEventListener('input', function (ev) {
+      if (ev.target.id === 'nstu' && (V.NT.students || []).indexOf(ev.target.value.trim()) >= 0) nAddStu();
+    });
+    $('view-notice').addEventListener('keydown', function (ev) {
+      if (ev.target.id === 'nstu' && ev.key === 'Enter') { ev.preventDefault(); nAddStu(); }
+    });
+    // 사진 줄이기 (긴 쪽 1600px, JPEG) — 학습실 앱과 같음
+    function nShrink(file) {
+      return new Promise(function (res, rej) {
+        var url = URL.createObjectURL(file), img = new Image();
+        img.onload = function () {
+          var M = 1600, r = Math.min(1, M / Math.max(img.naturalWidth, img.naturalHeight));
+          var c = document.createElement('canvas');
+          c.width = Math.round(img.naturalWidth * r); c.height = Math.round(img.naturalHeight * r);
+          c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+          URL.revokeObjectURL(url);
+          var d = c.toDataURL('image/jpeg', 0.82);
+          res({ mime: 'image/jpeg', b64: d.split(',')[1], url: d });
+        };
+        img.onerror = function () { URL.revokeObjectURL(url); rej(new Error('사진을 읽지 못했습니다. 다른 사진으로 해 주세요.')); };
+        img.src = url;
+      });
+    }
 
     // =========================== 주간 현황 ===========================
     function pct(a, b) { return b ? Math.round(a / b * 100) : null; }
