@@ -374,7 +374,13 @@ textarea.txt { resize: vertical; min-height: 64px; line-height: 1.45; }
 .sgrid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); align-items: start; padding: 0 14px 14px; }
 @media (max-width: 420px) { .sgrid { grid-template-columns: 1fr; } }
 .lstu { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); min-width: 0; }
-.lstu.off { opacity: .62; }
+.lstu.off .h { background: var(--bg); border-radius: 10px 10px 0 0; }
+.lstu.off .h .name { color: var(--muted); }
+.bulk { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 0 14px 12px; }
+.bulk .bk { font-size: 12.5px; font-weight: 700; color: var(--muted); margin-right: 2px; }
+.bulk button { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 7px 13px; font-size: 13.5px; font-weight: 600; min-height: 38px; }
+.bulk button.att { border-color: var(--ok); color: var(--ok); }
+.bulk button:disabled { opacity: .5; }
 .lstu .h { display: flex; gap: 8px; align-items: center; padding: 10px 12px; }
 .lstu .h .name { flex: 1; font-size: 16px; min-width: 0; }
 .lstu .b { border-top: 1px solid var(--line); padding: 10px 12px 12px; display: grid; gap: 10px; }
@@ -580,7 +586,7 @@ tr.quit td { color: var(--muted); }
 
   // ---------- 입장(공용 비밀번호) ----------
   var AUTH_FNS = { apiGetToday: 1, apiUpdate: 1, apiNudge: 1, apiAckBoss: 1, apiSetNotice: 1, apiAckNotice: 1,
-    apiMsgPreview: 1, apiHistory: 1, apiReportList: 1, apiReportExclude: 1, apiReportReason: 1, apiReportSendNow: 1, apiWeekly: 1, apiLessonGet: 1, apiLessonClass: 1, apiLessonStudent: 1, apiLessonAbsent: 1, apiLessonSendNow: 1,
+    apiMsgPreview: 1, apiHistory: 1, apiReportList: 1, apiReportExclude: 1, apiReportReason: 1, apiReportSendNow: 1, apiWeekly: 1, apiLessonGet: 1, apiLessonClass: 1, apiLessonStudent: 1, apiLessonAbsent: 1, apiLessonSendNow: 1, apiLessonBulk: 1,
     apiReqList: 1, apiReqConnect: 1, apiReqDecide: 1, apiRosterGet: 1, apiRosterSave: 1, apiRuleGet: 1, apiSettingsSave: 1 };
   var auth = { token: '', staff: '', admin: false };
   try { auth.token = localStorage.getItem('pif_token') || ''; auth.staff = localStorage.getItem('pif_staff') || ''; } catch (e) {}
@@ -1467,6 +1473,15 @@ tr.quit td { color: var(--muted); }
           if (on) { s.absent = 'wait'; s.absentNote = '발송 대기 (' + hhmm() + ' 체크·앱)'; } else { s.absent = ''; s.absentNote = ''; }
           rebuild(); return { data: clone(L), msg: on ? '1~6분 뒤 학생·학부모에게 발송됩니다. 잘못 눌렀다면 지금 취소하세요.' : '미도착 알림을 취소했습니다.' };
         },
+        apiLessonBulk: function (cls, field, value) {
+          var n = 0;
+          L.students.forEach(function (s) {
+            if (s.cls !== cls || s[field]) return;
+            if (field !== 'att' && s.att !== '출석' && s.att !== '지각') return;
+            s[field] = value; n++;
+          });
+          rebuild(); return { data: clone(L), msg: cls + ' ' + n + '명을 ' + value + '로 채웠습니다.' };
+        },
         apiLessonSendNow: function () {
           var ok = 0, skip = 0;
           rebuild();
@@ -1657,12 +1672,26 @@ tr.quit td { color: var(--muted); }
             L.items.map(function (it) { return '<button type="button" data-tog="' + esc(it) + '" aria-pressed="' + !!c.tog[it] + '">' + esc(it) + '</button>'; }).join('') +
             '</div></div></div>';
         }
+        h += bulkHTML(mine);
         h += V.llay === 'board' ? lBoardHTML(mine) : V.llay === 'list' ? lListHTML(mine) : '<div class="sgrid">' + mine.map(stuHTML).join('') + '</div>';
         h += '</section>';
       });
       h += lSheetHTML();
       paint($('view-lesson'), h);
     }
+    // ---- 한번에 입력 (비어 있는 칸만 채움) ----
+    function bulkHTML(mine) {
+      var noAtt = mine.filter(function (s) { return !s.att; }).length;
+      var present = function (s) { return s.att === '출석' || s.att === '지각'; };
+      var noHw = mine.filter(function (s) { return present(s) && !s.hw; }).length;
+      var noAtti = mine.filter(function (s) { return present(s) && !s.atti; }).length;
+      if (!noAtt && !noHw && !noAtti) return '';
+      return '<div class="bulk"><span class="bk">한번에 (빈 칸만)</span>' +
+        (noAtt ? '<button type="button" class="att" data-bulk="att" data-bv="출석">출석 미입력 ' + noAtt + '명 → 출석</button>' : '') +
+        (noHw ? '<button type="button" data-bulk="hw" data-bv="완료">과제 미입력 ' + noHw + '명 → 완료</button>' : '') +
+        (noAtti ? '<button type="button" data-bulk="atti" data-bv="양호">태도 미입력 ' + noAtti + '명 → 양호</button>' : '') + '</div>';
+    }
+
     // ---- 수업피드백 학생 보기: 칸 · 목록 ----
     var LGROUPS = [['none', '출석 미입력', 'var(--warn)', function (a) { return !a; }], ['in', '출석·지각', 'var(--ok)', function (a) { return a === '출석' || a === '지각'; }],
                    ['makeup', '영상보강', 'var(--accent)', function (a) { return a === '영상보강'; }], ['abs', '결석', 'var(--bad)', function (a) { return a === '결석'; }]];
@@ -1733,11 +1762,25 @@ tr.quit td { color: var(--muted); }
       if (s.preview) h += '<details class="pv" data-fk="pv|' + esc(k) + '"><summary>학부모 문자 미리보기 ▾</summary><div class="preview">' + esc(s.preview) + '</div></details>';
       return h + '</div></article>';
     }
-    function lessonSet(res) { var d = res && res.data ? res.data : res; if (d) { V.L = d; drawLesson(); } if (res && res.msg) toast(res.msg); }
+    // 저장이 줄 서 있는 동안 도착한 중간 결과로 화면을 덮지 않음 (빠르게 여러 명 누를 때 앞서 누른 것이 되돌아가는 문제 방지)
+    function lessonSet(res) { var d = res && res.data ? res.data : res; if (d && !pending) { V.L = d; drawLesson(); } if (res && res.msg) toast(res.msg); }
     $('view-lesson').addEventListener('click', function (ev) {
       var b = ev.target.closest('button');
       if (ev.target.hasAttribute && ev.target.hasAttribute('data-lsheet-bg')) { V.lsheet = null; drawLesson(); return; }
       if (b && b.hasAttribute('data-lclose')) { V.lsheet = null; drawLesson(); return; }
+      if (b && b.dataset.bulk) {
+        var bc = clsOf(b.closest('.lcls')), bf = b.dataset.bulk, bv = b.dataset.bv;
+        if (!sure(b, '한 번 더 누르면 ' + bv + '로 채웁니다')) return;
+        b.disabled = true;
+        V.L.students.forEach(function (s) {
+          if (s.cls !== bc.cls || s[bf]) return;
+          if (bf !== 'att' && s.att !== '출석' && s.att !== '지각') return;
+          s[bf] = bv;
+        });
+        drawLesson();
+        run('apiLessonBulk', [bc.cls, bf, bv], lessonSet);
+        return;
+      }
       if (b && b.dataset.llay) { V.llay = b.dataset.llay; V.lsheet = null; try { localStorage.setItem('pif_llayout', V.llay); } catch (e) {} drawLesson(); return; }
       if (!b) {
         var tk = ev.target.closest('.lst-tk');   // 칸·목록에서 학생을 누르면 입력 카드 열기
@@ -2026,7 +2069,7 @@ tr.quit td { color: var(--muted); }
       if (!P.rows.length) h += '<div class="empty">오늘 클리닉 학생이 없습니다.</div>';
       paint($('view-report'), h);
     }
-    function repSet(res) { var d = res && res.data ? res.data : res; if (d) { V.RP = d; drawReport(); } if (res && res.msg) toast(res.msg); }
+    function repSet(res) { var d = res && res.data ? res.data : res; if (d && !pending) { V.RP = d; drawReport(); } if (res && res.msg) toast(res.msg); }
     $('view-report').addEventListener('click', function (ev) {
       var b = ev.target.closest('button[data-pa]'); if (!b || b.disabled) return;
       if (b.dataset.pa === 'send') { if (!sure(b, '한 번 더 누르면 지금 발송합니다')) return; run('apiReportSendNow', [], repSet); return; }
