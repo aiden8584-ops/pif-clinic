@@ -381,6 +381,8 @@ textarea.txt { resize: vertical; min-height: 64px; line-height: 1.45; }
 .bulk button { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 7px 13px; font-size: 13.5px; font-weight: 600; min-height: 38px; }
 .bulk button.att { border-color: var(--ok); color: var(--ok); }
 .bulk button:disabled { opacity: .5; }
+.selbox { display: inline-grid; place-items: center; width: 34px; height: 34px; margin: -6px 2px -6px -6px; cursor: pointer; flex: none; }
+.selbox input { width: 20px; height: 20px; accent-color: var(--accent); cursor: pointer; }
 .btn.sendone { min-height: 40px; color: var(--accent); border-color: var(--accent); background: var(--surface); }
 .lstu .h { display: flex; gap: 8px; align-items: center; padding: 10px 12px; }
 .lstu .h .name { flex: 1; font-size: 16px; min-width: 0; }
@@ -587,7 +589,7 @@ tr.quit td { color: var(--muted); }
 
   // ---------- 입장(공용 비밀번호) ----------
   var AUTH_FNS = { apiGetToday: 1, apiUpdate: 1, apiNudge: 1, apiAckBoss: 1, apiSetNotice: 1, apiAckNotice: 1,
-    apiMsgPreview: 1, apiHistory: 1, apiReportList: 1, apiReportExclude: 1, apiReportReason: 1, apiReportSendNow: 1, apiWeekly: 1, apiLessonGet: 1, apiLessonClass: 1, apiLessonStudent: 1, apiLessonAbsent: 1, apiLessonSendNow: 1, apiLessonBulk: 1, apiLessonExclAll: 1, apiLessonSendOne: 1,
+    apiMsgPreview: 1, apiHistory: 1, apiReportList: 1, apiReportExclude: 1, apiReportReason: 1, apiReportSendNow: 1, apiWeekly: 1, apiLessonGet: 1, apiLessonClass: 1, apiLessonStudent: 1, apiLessonAbsent: 1, apiLessonSendNow: 1, apiLessonBulk: 1, apiLessonExclAll: 1, apiLessonSendOne: 1, apiLessonSendMany: 1,
     apiReqList: 1, apiReqConnect: 1, apiReqDecide: 1, apiRosterGet: 1, apiRosterSave: 1, apiRuleGet: 1, apiSettingsSave: 1 };
   var auth = { token: '', staff: '', admin: false };
   try { auth.token = localStorage.getItem('pif_token') || ''; auth.staff = localStorage.getItem('pif_staff') || ''; } catch (e) {}
@@ -1364,7 +1366,7 @@ tr.quit td { color: var(--muted); }
   // 원장 탭: 수업피드백 · 변경신청 · 학생명단 · 규정·설정 (원장으로 로그인했을 때만 보임)
   // =====================================================================
   (function () {
-    var V = { llay: 'card', lsheet: null, view: 'today', loaded: {}, L: null, Q: null, RO: null, RU: null, reqOpen: {}, edit: null,
+    var V = { lsel: {}, llay: 'card', lsheet: null, view: 'today', loaded: {}, L: null, Q: null, RO: null, RU: null, reqOpen: {}, edit: null,
               rq: '', rcls: '', rst: '재원', ruleWarn: false, lopen: {} };
     try { var sv = localStorage.getItem('pif_view'); if (sv) V.view = sv; } catch (e) {}
     try { var ll = localStorage.getItem('pif_llayout'); if (ll === 'board' || ll === 'list') V.llay = ll; } catch (e) {}
@@ -1478,6 +1480,11 @@ tr.quit td { color: var(--muted); }
           var n = 0;
           L.students.forEach(function (s) { if (s.cls === cls && !/^발송완료/.test(s.status) && (on ? s.att !== '결석' : true) && s.excl !== on) { s.excl = on; n++; } });
           rebuild(); return { data: clone(L), msg: cls + ' ' + n + '명을 ' + (on ? '발송 제외했습니다. 보낼 학생만 제외를 풀어 주세요.' : '발송 대상으로 되돌렸습니다.') };
+        },
+        apiLessonSendMany: function (list) {
+          var ok = [];
+          list.forEach(function (x) { var s = stu(x.row); if (s && !s.excl) { s.status = '발송완료 ' + hhmm(); ok.push(x.name); } });
+          rebuild(); return { data: clone(L), msg: '보냄 ' + ok.length + '명: ' + ok.join(', ') };
         },
         apiLessonSendOne: function (row, name, cls) {
           var s = stu(row);
@@ -1709,7 +1716,19 @@ tr.quit td { color: var(--muted); }
         (canEx ? '<button type="button" data-exall="1">전원 발송 제외 (' + canEx + '명)</button>' : '') +
         (exN ? '<button type="button" data-exall="0">제외 모두 풀기 (' + exN + '명)</button>' : '') +
         '<span class="bk" style="font-weight:500">몇 명만 보낼 때: 전원 제외 → 보낼 학생만 제외 풀기</span></div>';
+      var able = mine.filter(canSend), selN = able.filter(function (s) { return V.lsel[sKey(s)]; }).length;
+      if (able.length) h += '<div class="bulk"><span class="bk">골라서 지금 보내기</span>' +
+        (selN ? '<button type="button" class="att" data-selsend="1">✉ 선택한 ' + selN + '명 지금 보내기</button><button type="button" data-selclear="1">선택 해제</button>'
+              : '<span class="bk" style="font-weight:500">학생 이름 옆 □를 눌러 고르세요</span>') +
+        (selN < able.length ? '<button type="button" data-selall="1">보낼 수 있는 ' + able.length + '명 모두 선택</button>' : '') + '</div>';
       return h;
+    }
+    // 지금 바로 보낼 수 있는 학생 (문자 내용 있음 · 제외 아님 · 아직 안 보냄 · 알림중지/번호 없음 아님)
+    function canSend(s) { return !!s.preview && !s.excl && (s.status === '대기' || s.status === '승인 대기' || s.status === '⚠️ 발송 실패'); }
+    function selBox(s) {
+      if (!canSend(s)) return '';
+      var on = !!V.lsel[sKey(s)];
+      return '<label class="selbox" title="골라서 보내기"><input type="checkbox" data-sel="' + esc(sKey(s)) + '"' + (on ? ' checked' : '') + ' aria-label="' + esc(s.name) + ' 선택"></label>';
     }
 
     // ---- 수업피드백 학생 보기: 칸 · 목록 ----
@@ -1732,7 +1751,7 @@ tr.quit td { color: var(--muted); }
         return '<div class="bcol"><h3><i style="background:' + g[2] + '"></i>' + g[1] + '<span>' + list.length + '</span></h3>' + list.map(function (s) {
           var bits = [];
           if (s.hw) bits.push('과제 ' + s.hw); if (s.score !== '') bits.push(s.score + '점' + (s.pass ? ' ' + s.pass : '')); if (s.atti) bits.push('태도 ' + s.atti);
-          return '<div class="tk lst-tk" role="button" tabindex="0"' + sAttrs(s) + '><span class="r1"><b>' + esc(s.name) + '</b></span>' +
+          return '<div class="tk lst-tk" role="button" tabindex="0"' + sAttrs(s) + '><span class="r1">' + selBox(s) + '<b>' + esc(s.name) + '</b></span>' +
             '<span class="r2">' + lStatusPill(s) + (bits.length ? '<span>' + esc(bits.join(' · ')) + '</span>' : '') + (s.excl ? '<span class="flag">발송 제외</span>' : '') + '</span>' +
             lAbsentBtn(s) + '</div>';
         }).join('') + '</div>';
@@ -1740,9 +1759,9 @@ tr.quit td { color: var(--muted); }
     }
     function lListHTML(mine) {
       if (!mine.length) return '';
-      return '<div style="padding:0 14px 14px"><div class="ltb"><table><thead><tr><th>이름</th><th>출석</th><th>과제</th><th>리뷰</th><th>재시험</th><th>태도</th><th>문자</th><th></th></tr></thead><tbody>' +
+      return '<div style="padding:0 14px 14px"><div class="ltb"><table><thead><tr><th style="width:44px"></th><th>이름</th><th>출석</th><th>과제</th><th>리뷰</th><th>재시험</th><th>태도</th><th>문자</th><th></th></tr></thead><tbody>' +
         mine.map(function (s) {
-          return '<tr class="lst-tk' + (!s.att ? ' hl' : '') + '"' + sAttrs(s) + '><td><b>' + esc(s.name) + '</b></td>' +
+          return '<tr class="lst-tk' + (!s.att ? ' hl' : '') + '"' + sAttrs(s) + '><td>' + selBox(s) + '</td><td><b>' + esc(s.name) + '</b></td>' +
             '<td>' + (s.att ? '<span class="pill ' + (s.att === '결석' ? 's-abs' : s.att === '영상보강' ? 's-start' : s.att === '지각' ? 's-late' : 's-in') + '">' + esc(s.att) + '</span>' : '<span class="st-mute">—</span>') + '</td>' +
             '<td>' + esc(s.hw || '—') + '</td><td class="mono">' + (s.score !== '' ? esc(s.score) + '점 ' + (s.pass ? '<span class="st-mute">' + esc(s.pass) + '</span>' : '') : '—') + '</td>' +
             '<td>' + esc(s.retest || '—') + '</td><td>' + esc(s.atti || '—') + (s.cmt ? ' <span class="st-mute">💬</span>' : '') + '</td>' +
@@ -1761,7 +1780,7 @@ tr.quit td { color: var(--muted); }
       var ch = V.L.choices, k = s.cls + '|' + s.name;
       var off = s.excl || s.att === '결석';
       var h = '<article class="lstu' + (off ? ' off' : '') + '" data-row="' + s.row + '" data-name="' + esc(s.name) + '" data-cls="' + esc(s.cls) + '">';
-      h += '<div class="h"><span class="name"><b>' + esc(s.name) + '</b></span><span class="pill ' +
+      h += '<div class="h">' + selBox(s) + '<span class="name"><b>' + esc(s.name) + '</b></span><span class="pill ' +
         (/^발송완료/.test(s.status) ? 's-in' : /^⚠️/.test(s.status) ? 's-late' : /^제외/.test(s.status) ? 's-out' : 's-plan') + '">' + esc(s.status || '—') + '</span></div>';
       h += '<div class="b"><div class="row"><div class="lab"><span>출석</span></div>' + lSeg('att', ch.att, s.att, 'att') + '</div>';
       if (!s.att) {
@@ -1789,7 +1808,20 @@ tr.quit td { color: var(--muted); }
     function lessonSet(res) { var d = res && res.data ? res.data : res; if (d && !pending) { V.L = d; drawLesson(); } if (res && res.msg) toast(res.msg); }
     $('view-lesson').addEventListener('click', function (ev) {
       var b = ev.target.closest('button');
+      if (ev.target.closest && ev.target.closest('.selbox')) return;   // 고르기 칸은 change에서 처리 (카드 열기 X)
       if (ev.target.hasAttribute && ev.target.hasAttribute('data-lsheet-bg')) { V.lsheet = null; drawLesson(); return; }
+      if (b && b.dataset.selclear) { Object.keys(V.lsel).forEach(function (k) { if (k.indexOf(clsOf(b.closest('.lcls')).cls + '|') === 0) delete V.lsel[k]; }); drawLesson(); return; }
+      if (b && b.dataset.selall) { var sc = clsOf(b.closest('.lcls')); V.L.students.forEach(function (s) { if (s.cls === sc.cls && canSend(s)) V.lsel[sKey(s)] = 1; }); drawLesson(); return; }
+      if (b && b.dataset.selsend) {
+        var qc = clsOf(b.closest('.lcls'));
+        var pick = V.L.students.filter(function (s) { return s.cls === qc.cls && canSend(s) && V.lsel[sKey(s)]; });
+        if (!pick.length) return;
+        if (!sure(b, pick.length + '명에게 지금 보냅니다. 한 번 더 누르세요', 4000)) return;
+        b.disabled = true;
+        pick.forEach(function (s) { delete V.lsel[sKey(s)]; });
+        run('apiLessonSendMany', [pick.map(function (s) { return { row: s.row, name: s.name, cls: s.cls }; })], lessonSet);
+        return;
+      }
       if (b && b.hasAttribute('data-lclose')) { V.lsheet = null; drawLesson(); return; }
       if (b && b.dataset.exall) {
         var ec = clsOf(b.closest('.lcls')), on = b.dataset.exall === '1';
@@ -1877,7 +1909,10 @@ tr.quit td { color: var(--muted); }
         run('apiLessonStudent', [s.row, s.name, s.cls, f2, v2], lessonSet);
       }
     }
-    $('view-lesson').addEventListener('change', function (ev) { if (ev.target.tagName === 'SELECT') lessonCommit(ev.target); });
+    $('view-lesson').addEventListener('change', function (ev) {
+      if (ev.target.dataset && ev.target.dataset.sel != null) { if (ev.target.checked) V.lsel[ev.target.dataset.sel] = 1; else delete V.lsel[ev.target.dataset.sel]; drawLesson(); return; }
+      if (ev.target.tagName === 'SELECT') lessonCommit(ev.target);
+    });
     $('view-lesson').addEventListener('focusout', function (ev) { var t = ev.target; if (t.tagName !== 'SELECT' && (t.dataset.lc || t.dataset.ls)) lessonCommit(t); });
     $('view-lesson').addEventListener('keydown', function (ev) {
       if (ev.isComposing || ev.keyCode === 229) return;
