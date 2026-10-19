@@ -381,6 +381,7 @@ textarea.txt { resize: vertical; min-height: 64px; line-height: 1.45; }
 .bulk button { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 7px 13px; font-size: 13.5px; font-weight: 600; min-height: 38px; }
 .bulk button.att { border-color: var(--ok); color: var(--ok); }
 .bulk button:disabled { opacity: .5; }
+.btn.sendone { min-height: 40px; color: var(--accent); border-color: var(--accent); background: var(--surface); }
 .lstu .h { display: flex; gap: 8px; align-items: center; padding: 10px 12px; }
 .lstu .h .name { flex: 1; font-size: 16px; min-width: 0; }
 .lstu .b { border-top: 1px solid var(--line); padding: 10px 12px 12px; display: grid; gap: 10px; }
@@ -586,7 +587,7 @@ tr.quit td { color: var(--muted); }
 
   // ---------- 입장(공용 비밀번호) ----------
   var AUTH_FNS = { apiGetToday: 1, apiUpdate: 1, apiNudge: 1, apiAckBoss: 1, apiSetNotice: 1, apiAckNotice: 1,
-    apiMsgPreview: 1, apiHistory: 1, apiReportList: 1, apiReportExclude: 1, apiReportReason: 1, apiReportSendNow: 1, apiWeekly: 1, apiLessonGet: 1, apiLessonClass: 1, apiLessonStudent: 1, apiLessonAbsent: 1, apiLessonSendNow: 1, apiLessonBulk: 1,
+    apiMsgPreview: 1, apiHistory: 1, apiReportList: 1, apiReportExclude: 1, apiReportReason: 1, apiReportSendNow: 1, apiWeekly: 1, apiLessonGet: 1, apiLessonClass: 1, apiLessonStudent: 1, apiLessonAbsent: 1, apiLessonSendNow: 1, apiLessonBulk: 1, apiLessonExclAll: 1, apiLessonSendOne: 1,
     apiReqList: 1, apiReqConnect: 1, apiReqDecide: 1, apiRosterGet: 1, apiRosterSave: 1, apiRuleGet: 1, apiSettingsSave: 1 };
   var auth = { token: '', staff: '', admin: false };
   try { auth.token = localStorage.getItem('pif_token') || ''; auth.staff = localStorage.getItem('pif_staff') || ''; } catch (e) {}
@@ -1473,6 +1474,17 @@ tr.quit td { color: var(--muted); }
           if (on) { s.absent = 'wait'; s.absentNote = '발송 대기 (' + hhmm() + ' 체크·앱)'; } else { s.absent = ''; s.absentNote = ''; }
           rebuild(); return { data: clone(L), msg: on ? '1~6분 뒤 학생·학부모에게 발송됩니다. 잘못 눌렀다면 지금 취소하세요.' : '미도착 알림을 취소했습니다.' };
         },
+        apiLessonExclAll: function (cls, on) {
+          var n = 0;
+          L.students.forEach(function (s) { if (s.cls === cls && !/^발송완료/.test(s.status) && (on ? s.att !== '결석' : true) && s.excl !== on) { s.excl = on; n++; } });
+          rebuild(); return { data: clone(L), msg: cls + ' ' + n + '명을 ' + (on ? '발송 제외했습니다. 보낼 학생만 제외를 풀어 주세요.' : '발송 대상으로 되돌렸습니다.') };
+        },
+        apiLessonSendOne: function (row, name, cls) {
+          var s = stu(row);
+          if (s.excl) throw new Error('발송 제외된 학생입니다. 제외를 풀고 보내 주세요.');
+          s.status = '발송완료 ' + hhmm();
+          rebuild(); return { data: clone(L), msg: name + ' 학부모님께 보냈습니다.' };
+        },
         apiLessonBulk: function (cls, field, value) {
           var n = 0;
           L.students.forEach(function (s) {
@@ -1685,11 +1697,19 @@ tr.quit td { color: var(--muted); }
       var present = function (s) { return s.att === '출석' || s.att === '지각'; };
       var noHw = mine.filter(function (s) { return present(s) && !s.hw; }).length;
       var noAtti = mine.filter(function (s) { return present(s) && !s.atti; }).length;
-      if (!noAtt && !noHw && !noAtti) return '';
-      return '<div class="bulk"><span class="bk">한번에 (빈 칸만)</span>' +
+      var sent = function (s) { return /^발송완료/.test(s.status); };
+      var canEx = mine.filter(function (s) { return !s.excl && !sent(s) && s.att !== '결석'; }).length;
+      var exN = mine.filter(function (s) { return s.excl && !sent(s); }).length;
+      var h = '';
+      if (noAtt || noHw || noAtti) h += '<div class="bulk"><span class="bk">한번에 (빈 칸만)</span>' +
         (noAtt ? '<button type="button" class="att" data-bulk="att" data-bv="출석">출석 미입력 ' + noAtt + '명 → 출석</button>' : '') +
         (noHw ? '<button type="button" data-bulk="hw" data-bv="완료">과제 미입력 ' + noHw + '명 → 완료</button>' : '') +
         (noAtti ? '<button type="button" data-bulk="atti" data-bv="양호">태도 미입력 ' + noAtti + '명 → 양호</button>' : '') + '</div>';
+      if (canEx || exN) h += '<div class="bulk"><span class="bk">문자 보낼 학생</span>' +
+        (canEx ? '<button type="button" data-exall="1">전원 발송 제외 (' + canEx + '명)</button>' : '') +
+        (exN ? '<button type="button" data-exall="0">제외 모두 풀기 (' + exN + '명)</button>' : '') +
+        '<span class="bk" style="font-weight:500">몇 명만 보낼 때: 전원 제외 → 보낼 학생만 제외 풀기</span></div>';
+      return h;
     }
 
     // ---- 수업피드백 학생 보기: 칸 · 목록 ----
@@ -1760,6 +1780,9 @@ tr.quit td { color: var(--muted); }
       }
       if (s.att !== '결석') h += '<button class="toggle" type="button" data-la="excl" aria-pressed="' + !!s.excl + '"><span class="box">' + (s.excl ? '✓' : '') + '</span>이 학생은 발송 제외</button>';
       if (s.preview) h += '<details class="pv" data-fk="pv|' + esc(k) + '"><summary>학부모 문자 미리보기 ▾</summary><div class="preview">' + esc(s.preview) + '</div></details>';
+      if (s.preview && !s.excl && (s.status === '대기' || s.status === '승인 대기' || s.status === '⚠️ 발송 실패'))
+        h += '<button class="btn sendone" type="button" data-la="sendone">✉ 이 학생만 지금 보내기</button>';
+      else if (/^발송완료/.test(s.status)) h += '<p class="note" style="color:var(--ok);margin:0">✓ ' + esc(s.status) + '</p>';
       return h + '</div></article>';
     }
     // 저장이 줄 서 있는 동안 도착한 중간 결과로 화면을 덮지 않음 (빠르게 여러 명 누를 때 앞서 누른 것이 되돌아가는 문제 방지)
@@ -1768,6 +1791,15 @@ tr.quit td { color: var(--muted); }
       var b = ev.target.closest('button');
       if (ev.target.hasAttribute && ev.target.hasAttribute('data-lsheet-bg')) { V.lsheet = null; drawLesson(); return; }
       if (b && b.hasAttribute('data-lclose')) { V.lsheet = null; drawLesson(); return; }
+      if (b && b.dataset.exall) {
+        var ec = clsOf(b.closest('.lcls')), on = b.dataset.exall === '1';
+        if (!sure(b, on ? '한 번 더 누르면 전원 제외' : '한 번 더 누르면 모두 풀기')) return;
+        b.disabled = true;
+        V.L.students.forEach(function (s) { if (s.cls === ec.cls && !/^발송완료/.test(s.status) && (on ? s.att !== '결석' : true)) s.excl = on; });
+        drawLesson();
+        run('apiLessonExclAll', [ec.cls, on], lessonSet);
+        return;
+      }
       if (b && b.dataset.bulk) {
         var bc = clsOf(b.closest('.lcls')), bf = b.dataset.bulk, bv = b.dataset.bv;
         if (!sure(b, '한 번 더 누르면 ' + bv + '로 채웁니다')) return;
@@ -1820,6 +1852,11 @@ tr.quit td { color: var(--muted); }
       }
       if (card) {
         var s2 = stuOf(card);
+        if (a === 'sendone') {
+          if (!sure(b, '한 번 더 누르면 학부모님께 바로 발송')) return;
+          b.disabled = true;
+          run('apiLessonSendOne', [s2.row, s2.name, s2.cls], lessonSet); return;
+        }
         if (a === 'excl') { s2.excl = !s2.excl; drawLesson(); run('apiLessonStudent', [s2.row, s2.name, s2.cls, 'excl', s2.excl], lessonSet); return; }
         if (a === 'absent-on') { if (!sure(b, '한 번 더 누르면 발송 대기')) return; run('apiLessonAbsent', [s2.row, s2.name, s2.cls, true], lessonSet); return; }
         if (a === 'absent-off') { run('apiLessonAbsent', [s2.row, s2.name, s2.cls, false], lessonSet); return; }
