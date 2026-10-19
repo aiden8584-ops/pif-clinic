@@ -483,6 +483,10 @@ details.pv .preview { margin-top: 8px; background: var(--bg); border-radius: 9px
 table.t { border-collapse: collapse; width: 100%; min-width: 760px; font-size: 13.5px; }
 table.t th, table.t td { padding: 9px 12px; text-align: left; border-bottom: 1px solid var(--line); white-space: nowrap; }
 table.t th { font-size: 12px; color: var(--muted); font-weight: 600; background: var(--bg); position: sticky; top: 0; }
+table.t th.srt { cursor: pointer; user-select: none; -webkit-tap-highlight-color: transparent; }
+table.t th.srt:hover { color: var(--ink); }
+table.t th.srt.on { color: var(--accent); }
+table.t th.srt i { font-style: normal; font-size: 9px; margin-left: 3px; display: inline-block; min-width: 8px; }
 table.t tr:last-child td { border-bottom: 0; }
 table.t td:first-child { position: sticky; left: 0; z-index: 1; background: var(--surface); box-shadow: 1px 0 0 var(--line); }
 table.t th:first-child { left: 0; z-index: 2; box-shadow: 1px 0 0 var(--line); }
@@ -2240,23 +2244,60 @@ tr.quit td { color: var(--muted); }
       var q = V.rq.trim();
       var list = RO.rows.filter(function (r) {
         if (V.rcls && r.cls !== V.rcls) return false;
-        if (V.rst && r.status !== V.rst) return false;
+        if (V.rst ? r.status !== V.rst : r.status === '퇴원') return false;   // 퇴원생은 상태에서 '퇴원'을 고를 때만
         return !q || (r.disp + ' ' + r.name + ' ' + r.phone + ' ' + r.parent).indexOf(q.replace(/-/g, '')) !== -1 || r.disp.indexOf(q) !== -1;
       });
       h += '<div class="toolbar"><input class="txt" type="search" id="rq" data-fk="rq" placeholder="이름·번호 찾기" value="' + esc(V.rq) + '">' +
         '<select class="txt" id="rcls" aria-label="반">' + opts(ch.cls, V.rcls, '전체 반') + '</select>' +
-        '<select class="txt" id="rst" aria-label="상태">' + opts(ch.status, V.rst, '전체 상태') + '</select>' +
+        '<select class="txt" id="rst" aria-label="상태">' + opts(ch.status, V.rst, '재원·휴원 (퇴원 제외)') + '</select>' +
         '<button class="btn primary" type="button" id="radd" style="flex:0 0 auto">학생 추가</button></div>';
       if (V.edit) h += formHTML(V.edit, ch);
       h += '<div class="sect">' + list.length + '명</div>';
-      h += '<div class="panel tablewrap"><table class="t"><thead><tr><th>표시명</th><th>반</th><th>학교</th><th>수업</th><th>클리닉</th><th>일요</th><th>학생번호</th><th>학부모번호</th><th>상태</th><th>메모</th></tr></thead><tbody>' +
-        list.map(function (r) {
+      var o = V.rsort;
+      h += '<div class="panel tablewrap"><table class="t"><thead><tr>' + RCOLS.map(function (c) {
+          var on = o && o.k === c[0];
+          return '<th class="srt' + (on ? ' on' : '') + '" data-rsort="' + c[0] + '" role="button" tabindex="0" aria-sort="' + (on ? (o.d === 1 ? 'ascending' : 'descending') : 'none') + '">' + c[1] + '<i>' + (on ? (o.d === 1 ? '▲' : '▼') : '') + '</i></th>';
+        }).join('') + '</tr></thead><tbody>' +
+        rsorted(list).map(function (r) {
           return '<tr class="click' + (r.status === '퇴원' ? ' quit' : '') + '" data-row="' + r.row + '"><td><b>' + esc(r.disp) + '</b></td><td>' + esc(r.cls) + '</td><td>' + esc(r.school) + '</td><td>' + esc(r.lessonDay) + '</td>' +
             '<td class="num">' + esc(r.clinicDay) + ' ' + esc(r.clinicTime) + '</td><td class="num">' + esc(r.sunTime) + '</td><td class="num">' + esc(phone(r.phone)) + '</td><td class="num">' + esc(phone(r.parent)) + '</td>' +
             '<td><span class="pill ' + (r.status === '재원' ? 's-in' : r.status === '휴원' ? 's-late' : 's-out') + '">' + esc(r.status) + '</span>' + (r.stop ? ' <span class="chip kind">알림중지</span>' : '') + '</td><td class="memo">' + esc(r.memo) + '</td></tr>';
         }).join('') + '</tbody></table></div>';
       if (!list.length) h += '<div class="empty">해당하는 학생이 없습니다.</div>';
       paint($('view-roster'), h);
+    }
+    // ---- 학생명단: 제목을 누르면 정렬 (오름 → 내림 → 기본 순서) ----
+    var RCOLS = [['disp', '표시명'], ['cls', '반'], ['school', '학교'], ['lessonDay', '수업'], ['clinic', '클리닉'], ['sunTime', '일요'], ['phone', '학생번호'], ['parent', '학부모번호'], ['status', '상태'], ['memo', '메모']];
+    var DAY_ORDER = '월화수목금토일';
+    V.rsort = null;
+    try { var rs0 = JSON.parse(localStorage.getItem('pif_rsort') || 'null'); if (rs0 && rs0.k && (rs0.d === 1 || rs0.d === -1)) V.rsort = rs0; } catch (e) {}
+    function dayKey(d) { d = String(d || ''); var i = DAY_ORDER.indexOf(d.charAt(0)); return i < 0 ? 9 : i; }
+    function rsortVal(r, k) {
+      switch (k) {
+        case 'lessonDay': return r.lessonDay ? dayKey(r.lessonDay) * 10 : null;
+        case 'clinic': return r.clinicDay ? dayKey(r.clinicDay) * 10000 + (mins(r.clinicTime) || 0) : null;
+        case 'sunTime': return r.sunTime ? (mins(r.sunTime) || 0) : null;
+        case 'status': return { '재원': 0, '휴원': 1, '퇴원': 2 }[r.status] != null ? { '재원': 0, '휴원': 1, '퇴원': 2 }[r.status] : (r.status ? 3 : null);
+        default: return String(r[k] || '').trim() || null;
+      }
+    }
+    function rsorted(list) {
+      var o = V.rsort; if (!o) return list;
+      return list.slice().sort(function (a, b) {
+        var x = rsortVal(a, o.k), y = rsortVal(b, o.k);
+        if (x !== y) {
+          if (x == null) return 1; if (y == null) return -1;
+          var c = typeof x === 'string' ? x.localeCompare(y, 'ko') : x - y;
+          if (c) return c * o.d;
+        }
+        return a.row - b.row;
+      });
+    }
+    function rsortClick(k) {
+      var o = V.rsort;
+      V.rsort = !o || o.k !== k ? { k: k, d: 1 } : o.d === 1 ? { k: k, d: -1 } : null;
+      try { if (V.rsort) localStorage.setItem('pif_rsort', JSON.stringify(V.rsort)); else localStorage.removeItem('pif_rsort'); } catch (e) {}
+      drawRoster();
     }
     function formHTML(e, ch) {
       var isNew = !e.row;
@@ -2286,7 +2327,12 @@ tr.quit td { color: var(--muted); }
       if (ev.target.id === 'rcls') { V.rcls = ev.target.value; drawRoster(); }
       if (ev.target.id === 'rst') { V.rst = ev.target.value; drawRoster(); }
     });
+    $('view-roster').addEventListener('keydown', function (ev) {
+      var so = ev.target.closest && ev.target.closest('[data-rsort]');
+      if (so && (ev.key === 'Enter' || ev.key === ' ')) { ev.preventDefault(); rsortClick(so.dataset.rsort); }
+    });
     $('view-roster').addEventListener('click', function (ev) {
+      var so = ev.target.closest('[data-rsort]'); if (so) { rsortClick(so.dataset.rsort); return; }
       if (ev.target.closest('#radd')) { V.edit = { row: 0, disp: '', name: '', school: '', cls: '', lessonDay: '', clinicDay: '', clinicTime: '', sunTime: '', phone: '', parent: '', status: '재원', stop: false, memo: '' }; drawRoster(); window.scrollTo(0, 0); return; }
       if (ev.target.closest('#rcancel')) { V.edit = null; drawRoster(); return; }
       var tr = ev.target.closest('tr.click');
@@ -2299,7 +2345,8 @@ tr.quit td { color: var(--muted); }
       var btn = ev.target.querySelector('button[type=submit]'); btn.disabled = true;
       run('apiRosterSave', [d.row || 0, d], function (res) {
         if (!res) { btn.disabled = false; return; }
-        V.RO = res; V.edit = null; drawRoster(); toast(isNew ? d.disp + ' 학생을 추가했습니다.' : '저장했습니다.');
+        V.RO = res; V.edit = null; drawRoster();
+        toast(isNew ? d.disp + ' 학생을 추가했습니다.' : d.status === '퇴원' && V.rst !== '퇴원' ? '저장했습니다. 퇴원생은 명단에서 빠져요 (상태에서 "퇴원"을 고르면 다시 보여요).' : '저장했습니다.');
       }).then(function (r) { if (!r && btn.isConnected) btn.disabled = false; });
     });
 
