@@ -421,6 +421,7 @@ textarea.txt { resize: vertical; min-height: 64px; line-height: 1.45; }
 .bulk .bk { font-size: 12.5px; font-weight: 700; color: var(--muted); margin-right: 2px; }
 .bulk button { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 7px 13px; font-size: 13.5px; font-weight: 600; min-height: 38px; }
 .bulk button.att { border-color: var(--ok); color: var(--ok); }
+.bulk button.clr { color: var(--bad); }
 .bulk button:disabled { opacity: .5; }
 .selbox { display: inline-grid; place-items: center; width: 34px; height: 34px; margin: -6px 2px -6px -6px; cursor: pointer; flex: none; }
 .selbox input { width: 20px; height: 20px; accent-color: var(--accent); cursor: pointer; }
@@ -635,7 +636,7 @@ tr.quit td { color: var(--muted); }
 
   // ---------- 입장(공용 비밀번호) ----------
   var AUTH_FNS = { apiGetToday: 1, apiUpdate: 1, apiNudge: 1, apiAckBoss: 1, apiSetNotice: 1, apiAckNotice: 1,
-    apiMsgPreview: 1, apiHistory: 1, apiReportList: 1, apiReportExclude: 1, apiReportReason: 1, apiReportSendNow: 1, apiWeekly: 1, apiLessonGet: 1, apiLessonClass: 1, apiLessonStudent: 1, apiLessonAbsent: 1, apiLessonSendNow: 1, apiLessonBulk: 1, apiLessonExclAll: 1, apiLessonSendOne: 1, apiLessonSendMany: 1, apiNoticeList: 1, apiNoticeSave: 1,
+    apiMsgPreview: 1, apiHistory: 1, apiReportList: 1, apiReportExclude: 1, apiReportReason: 1, apiReportSendNow: 1, apiWeekly: 1, apiLessonGet: 1, apiLessonClass: 1, apiLessonStudent: 1, apiLessonAbsent: 1, apiLessonSendNow: 1, apiLessonBulk: 1, apiLessonClear: 1, apiLessonExclAll: 1, apiLessonSendOne: 1, apiLessonSendMany: 1, apiNoticeList: 1, apiNoticeSave: 1,
     apiReqList: 1, apiReqConnect: 1, apiReqDecide: 1, apiRosterGet: 1, apiRosterSave: 1, apiRuleGet: 1, apiSettingsSave: 1 };
   var auth = { token: '', staff: '', admin: false };
   try { auth.token = localStorage.getItem('pif_token') || ''; auth.staff = localStorage.getItem('pif_staff') || ''; } catch (e) {}
@@ -1593,6 +1594,14 @@ tr.quit td { color: var(--muted); }
           });
           rebuild(); return { data: clone(L), msg: cls + ' ' + n + '명을 ' + value + '로 채웠습니다.' };
         },
+        apiLessonClear: function (cls, field) {
+          var n = 0;
+          L.students.forEach(function (s) {
+            if (s.cls !== cls || !s[field] || /^발송완료/.test(s.status)) return;
+            s[field] = ''; n++;
+          });
+          rebuild(); return { data: clone(L), msg: cls + ' ' + n + '명의 ' + ({ att: '출석', hw: '과제', atti: '태도' })[field] + ' 칸을 지웠습니다.' };
+        },
         apiLessonSendNow: function () {
           var ok = 0, skip = 0;
           rebuild();
@@ -1806,6 +1815,13 @@ tr.quit td { color: var(--muted); }
         (noAtt ? '<button type="button" class="att" data-bulk="att" data-bv="출석">출석 미입력 ' + noAtt + '명 → 출석</button>' : '') +
         (noHw ? '<button type="button" data-bulk="hw" data-bv="완료">과제 미입력 ' + noHw + '명 → 완료</button>' : '') +
         (noAtti ? '<button type="button" data-bulk="atti" data-bv="양호">태도 미입력 ' + noAtti + '명 → 양호</button>' : '') + '</div>';
+      // 한번에 지우기 (이미 문자를 보낸 학생은 빼고)
+      var clrN = function (f) { return mine.filter(function (s) { return s[f] && !sent(s); }).length; };
+      var cAtt = clrN('att'), cHw = clrN('hw'), cAtti = clrN('atti');
+      if (cAtt || cHw || cAtti) h += '<div class="bulk"><span class="bk">한번에 지우기</span>' +
+        (cAtt ? '<button type="button" class="clr" data-bclr="att">출석 지우기 (' + cAtt + '명)</button>' : '') +
+        (cHw ? '<button type="button" class="clr" data-bclr="hw">과제 지우기 (' + cHw + '명)</button>' : '') +
+        (cAtti ? '<button type="button" class="clr" data-bclr="atti">태도 지우기 (' + cAtti + '명)</button>' : '') + '</div>';
       if (canEx || exN) h += '<div class="bulk"><span class="bk">문자 보낼 학생</span>' +
         (canEx ? '<button type="button" data-exall="1">모두 안 보내기 (' + canEx + '명)</button>' : '') +
         (exN ? '<button type="button" data-exall="0">모두 다시 보내기로 (' + exN + '명)</button>' : '') +
@@ -1939,6 +1955,15 @@ tr.quit td { color: var(--muted); }
         V.L.students.forEach(function (s) { if (s.cls === ec.cls && !/^발송완료/.test(s.status) && (on ? s.att !== '결석' : true)) s.excl = on; });
         drawLesson();
         run('apiLessonExclAll', [ec.cls, on], lessonSet);
+        return;
+      }
+      if (b && b.dataset.bclr) {
+        var cc = clsOf(b.closest('.lcls')), cf = b.dataset.bclr, cname = ({ att: '출석', hw: '과제', atti: '태도' })[cf];
+        if (!sure(b, '한 번 더 누르면 ' + cname + ' 모두 지움')) return;
+        b.disabled = true;
+        V.L.students.forEach(function (s) { if (s.cls === cc.cls && !/^발송완료/.test(s.status)) s[cf] = ''; });
+        drawLesson();
+        run('apiLessonClear', [cc.cls, cf], lessonSet);
         return;
       }
       if (b && b.dataset.bulk) {
