@@ -511,6 +511,8 @@ table.t td.memo { white-space: normal; min-width: 160px; color: var(--muted); }
 tr.quit td { color: var(--muted); }
 .rform { padding: 16px; margin-bottom: 14px; display: grid; gap: 14px; border-color: var(--accent); }
 .rform h3 { margin: 0; font-size: 17px; }
+.chform[data-kind="결석"] .f-new, .chform[data-kind="추가등원"] .f-orig { display: none; }
+.chl .del { margin-left: auto; flex: 0 0 auto; min-height: 34px; padding: 4px 12px; font-size: 13px; }
 .chk { display: flex; align-items: center; gap: 8px; font-size: 14px; }
 .chk input { width: 18px; height: 18px; }
 .egrid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
@@ -675,7 +677,7 @@ tr.quit td { color: var(--muted); }
   // ---------- 입장(공용 비밀번호) ----------
   var AUTH_FNS = { apiGetToday: 1, apiUpdate: 1, apiNudge: 1, apiAckBoss: 1, apiSetNotice: 1, apiAckNotice: 1,
     apiMsgPreview: 1, apiHistory: 1, apiReportList: 1, apiReportExclude: 1, apiReportReason: 1, apiReportSendNow: 1, apiWeekly: 1, apiLessonGet: 1, apiLessonClass: 1, apiLessonStudent: 1, apiLessonAbsent: 1, apiLessonSendNow: 1, apiLessonBulk: 1, apiLessonClear: 1, apiLessonExclAll: 1, apiLessonSendOne: 1, apiLessonSendMany: 1, apiNoticeList: 1, apiNoticeSave: 1,
-    apiReqList: 1, apiReqConnect: 1, apiReqDecide: 1, apiRosterGet: 1, apiRosterSave: 1, apiRuleGet: 1, apiSettingsSave: 1 };
+    apiReqList: 1, apiReqConnect: 1, apiReqDecide: 1, apiChangeAdd: 1, apiChangeDelete: 1, apiRosterGet: 1, apiRosterSave: 1, apiRuleGet: 1, apiSettingsSave: 1 };
   var auth = { token: '', staff: '', admin: false };
   try { auth.token = localStorage.getItem('pif_token') || ''; auth.staff = localStorage.getItem('pif_staff') || ''; } catch (e) {}
 
@@ -1649,6 +1651,9 @@ tr.quit td { color: var(--muted); }
         { id: 'R1015', at: '2026-10-17 22:30', disp: '(예시) 서하은', cls: '서초1', by: '학부모', kind: '변경', orig: '2026-10-19', newDate: '2026-10-25', newTime: '14:00', reason: '병원 진료', status: '반려', handler: '원장', handledAt: '2026-10-18 09:10', memo: '이번 기간 변경 3회를 모두 사용했어요. 학원으로 전화 주세요.' },
         { id: 'R1012', at: '2026-10-17 18:00', disp: '(예시) 김도윤', cls: '서울2', by: '학생', kind: '결석', orig: '2026-10-19', newDate: '', newTime: '', reason: '학교 행사', status: '승인', handler: '원장', handledAt: '2026-10-17 20:02', memo: '' }
       ] };
+      Q.changes = { today: ymd(new Date()), rows: [], kinds: ['추가등원', '변경', '결석'], todos: ['영상보강'],
+        times: ['15:00', '15:30', '16:00', '16:30', '17:00', '17:30', '18:00', '18:30', '19:00', '19:30', '20:00'],
+        students: [{ disp: '(예시) 김도윤', cls: '서울2' }, { disp: '(예시) 박서연', cls: '서울2' }, { disp: '(예시) 최지우', cls: '서초1' }, { disp: '(예시) 서하은', cls: '서초1' }] };
       var RO = { choices: { school: ['서울고', '서초고', '상문고', '기타'], cls: ['서울1', '서울2', '서초1', '상문1', '고2정시반'], day: ['월', '화', '수', '목', '금', '토', '일'], status: ['재원', '휴원', '퇴원'], time: ['15:00', '15:30', '16:00', '16:30', '17:00', '17:30', '18:00', '18:30', '19:00', '19:30', '20:00'] },
         rows: [
           ['(예시) 김도윤', '김도윤', '서울고', '서울2', '토', '수', '15:30', '', '01012345678', '01087654321', '재원', false, ''],
@@ -1744,6 +1749,15 @@ tr.quit td { color: var(--muted); }
           r.status = decision; r.handler = '원장'; r.handledAt = ymd(new Date()) + ' ' + hhmm(); r.memo = memo || '';
           return { data: clone(Q), msg: decision === '승인' ? '승인했습니다. 🔄일정변경에 기록하고 학생·학부모에게 알렸습니다.' : '반려했습니다. 학생·학부모에게 알렸습니다.' };
         },
+        apiChangeAdd: function (d) {
+          if (!d.name) throw new Error('학생을 골라 주세요.');
+          if (d.kind !== '결석' && !d.newDate) throw new Error('새 날짜를 골라 주세요.');
+          var C = Q.changes, orig = d.kind === '추가등원' ? '' : (d.orig || C.today);
+          C.rows.unshift({ row: 100 + C.rows.length, name: d.name, cls: '', kind: d.kind, orig: orig, newDate: d.kind === '결석' ? '' : d.newDate, newTime: d.kind === '결석' ? '' : (d.newTime || '15:00'),
+            reason: d.reason || '', todo: d.todo || '', notice: d.notice !== false, day: d.kind === '결석' ? orig : d.newDate });
+          return { changes: clone(C), msg: d.name + ' 일정변경을 넣었습니다. (데모)' };
+        },
+        apiChangeDelete: function (row) { Q.changes.rows = Q.changes.rows.filter(function (r) { return r.row !== row; }); return { changes: clone(Q.changes), msg: '지웠습니다. (데모)' }; },
         apiRosterGet: function () { return clone(RO); },
         apiRosterSave: function (row, d) {
           if (!row) {
@@ -2227,7 +2241,7 @@ tr.quit td { color: var(--muted); }
           (Q.error ? '<p class="note bad">' + esc(Q.error) + '</p>' : '') +
           '<input class="txt" type="password" id="reqPw" autocomplete="off" placeholder="학습실 원장 비밀번호">' +
           '<button class="btn primary" type="submit">연결</button></form>';
-        $('view-req').innerHTML = h; return;
+        paint($('view-req'), chHTML() + h); return;
       }
       var wait = Q.requests.filter(function (r) { return r.status === '대기'; }).sort(function (a, b) { return a.at.localeCompare(b.at); });
       var done = Q.requests.filter(function (r) { return r.status !== '대기'; }).slice(0, 20);
@@ -2245,6 +2259,7 @@ tr.quit td { color: var(--muted); }
             : '<div class="act"><button class="btn" type="button" data-ra="open">반려</button><button class="btn primary" type="button" data-ra="approve">승인</button></div>') +
           '</div>';
       }).join('') + '</div>' : '<div class="panel"><div class="empty">처리할 신청이 없습니다.</div></div>';
+      h += chHTML();
       h += '<div class="sect">최근 처리</div>';
       h += done.length ? '<div class="panel">' + done.map(function (r) {
         return '<div class="req"><div class="rt"><b>' + esc(r.disp) + '</b><span class="chip">' + esc(r.cls) + '</span><span class="pill ' + (r.status === '승인' ? 's-in' : r.status === '반려' ? 's-abs' : 's-out') + '">' + esc(r.status) + '</span>' +
@@ -2254,14 +2269,66 @@ tr.quit td { color: var(--muted); }
       }).join('') + '</div>' : '<div class="panel"><div class="empty">아직 없습니다.</div></div>';
       paint($('view-req'), h);
     }
+    // ---- 🔄일정변경 직접 입력 (시트에 적는 것과 같음) + 최근 일정변경 ----
+    function chHTML() {
+      var C = V.Q && V.Q.changes; if (!C) return '';
+      var f = V.cf || (V.cf = { name: '', kind: '결석', orig: '', newDate: '', newTime: '', reason: '', todo: '', notice: true });
+      var lab = function (a, b) { return '<span class="lab"><span>' + a + '</span>' + (b ? '<span>' + b + '</span>' : '') + '</span>'; };
+      var h = '<div class="sect">일정변경 직접 입력</div><form class="panel rform chform" id="chform" data-kind="' + esc(f.kind) + '"><div class="fgrid">' +
+        '<label class="row">' + lab('학생', '이름 일부를 치면 골라져요') + '<input class="txt" list="chStu" data-cf="name" data-fk="cf|name" value="' + esc(f.name) + '" placeholder="표시명" autocomplete="off"></label>' +
+        '<datalist id="chStu">' + C.students.map(function (s) { return '<option value="' + esc(s.disp) + '">' + esc(s.cls) + '</option>'; }).join('') + '</datalist>' +
+        '<label class="row">' + lab('구분') + '<select class="txt" data-cf="kind">' + C.kinds.map(function (k) { return '<option value="' + esc(k) + '"' + (f.kind === k ? ' selected' : '') + '>' + esc(k === '변경' ? '날짜 변경' : k) + '</option>'; }).join('') + '</select></label>' +
+        '<label class="row f-orig">' + lab('원래 클리닉일', '비우면 다음 클리닉일') + '<input class="txt" type="date" data-cf="orig" value="' + esc(f.orig) + '"></label>' +
+        '<label class="row f-new">' + lab('새 날짜') + '<input class="txt" type="date" data-cf="newDate" value="' + esc(f.newDate) + '"></label>' +
+        '<label class="row f-new">' + lab('새 시간', '비우면 학생 클리닉 시간') + '<select class="txt" data-cf="newTime">' + opts(C.times, f.newTime, '학생 클리닉 시간') + '</select></label>' +
+        '<label class="row">' + lab('해야할 일', '예: 영상보강') + '<input class="txt" list="chTodo" data-cf="todo" data-fk="cf|todo" value="' + esc(f.todo) + '" maxlength="200" autocomplete="off"></label>' +
+        '<datalist id="chTodo">' + C.todos.map(function (t) { return '<option value="' + esc(t) + '">'; }).join('') + '</datalist>' +
+        '<label class="row wide">' + lab('사유') + '<input class="txt" data-cf="reason" data-fk="cf|reason" value="' + esc(f.reason) + '" maxlength="200"></label>' +
+        '<label class="chk"><input type="checkbox" data-cf="notice"' + (f.notice ? ' checked' : '') + '> 전날까지 연락함</label>' +
+        '</div><div class="act"><button class="btn primary" type="submit">🔄일정변경에 넣기</button></div></form>';
+      h += '<div class="sect">최근 일정변경 (지난 7일 ~ 앞으로) ' + C.rows.length + '건</div>';
+      h += C.rows.length ? '<div class="panel chl">' + C.rows.map(function (r) {
+        return '<div class="req" data-chrow="' + r.row + '" data-chname="' + esc(r.name) + '"' + (r.day < C.today ? ' style="opacity:.6"' : '') + '><div class="rt"><b>' + esc(r.name) + '</b>' +
+          (r.cls ? '<span class="chip">' + esc(r.cls) + '</span>' : '') +
+          '<span class="pill ' + (r.kind === '결석' ? 's-abs' : r.kind === '추가등원' ? 's-in' : 's-start') + '">' + esc(r.kind === '변경' ? '날짜 변경' : r.kind) + '</span>' +
+          (r.day === C.today ? '<span class="pill s-late">오늘</span>' : '') + '<span class="when">' + reqWhen(r) + '</span>' +
+          '<button class="btn ghost del" type="button" data-cha="del">지우기</button></div>' +
+          (r.reason || r.todo ? '<div class="small">' + esc(r.reason) + (r.todo ? (r.reason ? ' · ' : '') + '해야할 일: ' + esc(r.todo) : '') + (r.kind === '변경' && !r.notice ? ' · <span class="st-warn">전날 연락 없음</span>' : '') + '</div>' : '') +
+          '</div>';
+      }).join('') + '</div>' : '<div class="panel"><div class="empty">최근 일정변경이 없습니다.</div></div>';
+      return h;
+    }
+    function chSet(res) { if (res && res.changes && V.Q) { V.Q.changes = res.changes; drawReq(); } if (res && res.msg) toast(res.msg); }
+    function cfSync(ev) {
+      var el = ev.target; if (!el.dataset || !el.dataset.cf) return;
+      V.cf = V.cf || {}; V.cf[el.dataset.cf] = el.type === 'checkbox' ? el.checked : el.value.trim();
+      if (el.dataset.cf === 'kind') el.closest('form').dataset.kind = el.value;
+    }
+    $('view-req').addEventListener('input', cfSync);
+    $('view-req').addEventListener('change', cfSync);
     function reqSet(res) { var d = res && res.data ? res.data : res; if (d) { V.Q = d; drawReq(); } if (res && res.msg) toast(res.msg); }
     $('view-req').addEventListener('submit', function (ev) {
       ev.preventDefault();
+      if (ev.target.id === 'chform') {
+        var f = V.cf || {};
+        if (!f.name) { toast('학생을 골라 주세요.', true); return; }
+        if (f.kind !== '결석' && !f.newDate) { toast('새 날짜를 골라 주세요.', true); return; }
+        var btn = ev.target.querySelector('button[type=submit]'); btn.disabled = true;
+        run('apiChangeAdd', [Object.assign({}, f)], function (res) { if (res) V.cf = null; chSet(res); })
+          .then(function (r) { if (!r && btn.isConnected) btn.disabled = false; });
+        return;
+      }
       var pw = $('reqPw').value; $('reqPw').value = '';
       run('apiReqConnect', [pw], function (d) { reqSet(d); if (d && d.connected) toast('연결했습니다.'); });
     });
     $('view-req').addEventListener('click', function (ev) {
-      var b = ev.target.closest('button'); if (!b || !b.dataset.ra) return;
+      var b = ev.target.closest('button');
+      if (b && b.dataset.cha === 'del') {
+        var cb = b.closest('[data-chrow]');
+        if (!sure(b, '한 번 더 누르면 지움')) return;
+        b.disabled = true; run('apiChangeDelete', [+cb.dataset.chrow, cb.dataset.chname], chSet); return;
+      }
+      if (!b || !b.dataset.ra) return;
       var box = b.closest('.req'), id = box.dataset.id, a = b.dataset.ra;
       if (a === 'open') { V.reqOpen[id] = true; drawReq(); var t = box.parentNode.querySelector('.req[data-id="' + cssEsc(id) + '"] textarea'); if (t) t.focus(); return; }
       if (a === 'cancel') { delete V.reqOpen[id]; drawReq(); return; }
