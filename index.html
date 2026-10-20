@@ -275,6 +275,7 @@ main .wrap { padding-block: 14px 40px; }
 .al-main > span:last-child { min-width: 0; }
 .al .nbtn { flex: none; }
 .nbtn { border: 1px solid var(--bad); background: var(--bad); color: var(--surface); border-radius: 9px; padding: 7px 11px; font-size: 13px; font-weight: 700; white-space: nowrap; min-height: 36px; }
+.nbtns { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .nbtn.wait { background: var(--warn-soft); color: var(--warn); border-color: var(--warn); }
 .nbtn.done { display: inline-flex; align-items: center; background: var(--ok-soft); color: var(--ok); border-color: transparent; font-weight: 600; min-height: 0; padding: 4px 9px; }
 .nbtn:disabled { opacity: .6; }
@@ -712,10 +713,15 @@ tr.quit td { color: var(--muted); }
           student: '[PIF영어학원 미도착 안내]\n' + nm + ' 학생, 오늘 ' + t + ' 클리닉 시간이 지났지만 아직 등원이 확인되지 않았습니다.\n\n이동 중이라면 조심히 오고, 늦거나 오기 어려운 사정이 있으면 지금 바로 학원으로 연락해 주세요.\n사전 연락 없는 결석은 무단 결석으로 처리되며, 해당 수업 자료가 배부되지 않고 영상 보강도 제공되지 않습니다.\n\n☎ 02-525-8584',
           parent: '[PIF영어학원 미도착 안내]\n안녕하세요, 학부모님.\n' + nm + ' 학생이 오늘 ' + t + ' 클리닉에 아직 등원하지 않아 안내드립니다.\n\n학원 수강 규정에 따라 사전 연락 없는 결석은 무단 결석으로 처리되며, 해당 수업 자료 배부와 영상 보강이 제공되지 않습니다.\n학생의 등원 여부를 확인해 주시고, 사정이 있으시면 학원으로 연락 부탁드립니다.\n\n감사합니다.\nPIF영어학원 드림\n☎ 02-525-8584' } };
       },
-      apiNudge: function (row, name, on) {
-        var r = find(row);
-        if (on) { r.nudge = 'wait'; r.nudgeNote = '발송 대기 (' + hm(0) + ' 체크)'; return { row: JSON.parse(JSON.stringify(r)), msg: '1~6분 뒤 학생·학부모에게 발송됩니다. 잘못 눌렀다면 지금 취소하세요.' }; }
-        r.nudge = ''; r.nudgeNote = ''; return { row: JSON.parse(JSON.stringify(r)), msg: '미도착 알림을 취소했습니다.' };
+      apiNudge: function (row, name, on, who) {
+        var r = find(row), W = { student: '학생', parent: '학부모', both: '학생·학부모' };
+        who = who === 'student' || who === 'parent' ? who : 'both';
+        if (on) { r.nudgeTo = r.nudgeTo || []; r.nudge = 'wait'; r.nudgeWho = who; r.nudgeNote = '발송 대기 (' + hm(0) + ' 체크)';
+          // 미리 보기에서는 3초 뒤 '보냄'으로 바뀜
+          setTimeout(function () { if (r.nudge !== 'wait') return; var got = r.nudgeTo.concat(W[who].split('·')); r.nudgeTo = ['학생', '학부모'].filter(function (x) { return got.indexOf(x) !== -1; }); r.nudge = 'sent'; r.nudgeWho = ''; r.nudgeNote = '미도착 알림 발송 완료 ' + hm(0) + ' (' + r.nudgeTo.join('·') + ')'; }, 3000);
+          return { row: JSON.parse(JSON.stringify(r)), msg: '1~6분 뒤 ' + W[who] + '에게 발송됩니다. 잘못 눌렀다면 지금 취소하세요.' }; }
+        r.nudge = (r.nudgeTo || []).length ? 'sent' : ''; r.nudgeWho = ''; r.nudgeNote = r.nudge ? '미도착 알림 발송 완료 (' + r.nudgeTo.join('·') + ')' : '';
+        return { row: JSON.parse(JSON.stringify(r)), msg: '미도착 알림을 취소했습니다.' };
       }
     };
   })();
@@ -727,6 +733,9 @@ tr.quit td { color: var(--muted); }
   var auth = { token: '', staff: '', admin: false };
   try { auth.token = localStorage.getItem('pif_token') || ''; auth.staff = localStorage.getItem('pif_staff') || ''; } catch (e) {}
 
+  // 다시 시도해도 되는 '읽기만 하는' 요청 (저장·발송·공지 저장은 넣지 않음: 두 번 실행될 수 있음)
+  var READ_FNS = { apiLoginInfo: 1, apiGetToday: 1, apiHistory: 1, apiLessonHist: 1, apiMsgPreview: 1, apiLessonGet: 1, apiLessonLog: 1, apiLessonDay: 1,
+    apiReqList: 1, apiRosterGet: 1, apiRuleGet: 1, apiReportList: 1, apiWeekly: 1, apiNoticeList: 1 };
   function call(fn) {
     var args = Array.prototype.slice.call(arguments, 1);
     if (AUTH_FNS[fn] && !DEMO) args.unshift(auth.token);
@@ -737,6 +746,8 @@ tr.quit td { color: var(--muted); }
       };
       if (DEMO) { setTimeout(function () { try { resolve(demo[fn].apply(null, args)); } catch (e) { fail(e); } }, 250); return; }
       if (API_URL) {
+        var tries = 0;
+        var go = function () {
         fetch(API_URL, { method: 'POST', body: JSON.stringify({ fn: fn, args: args }) })   // text/plain → 사전 확인 없이 바로 전송
           .then(function (res) {
             return res.text().then(function (t) {
@@ -751,9 +762,15 @@ tr.quit td { color: var(--muted); }
           })
           .then(function (j) { if (j.ok) resolve(j.data); else fail(new Error(j.error)); },
                 function (err) {
-                  if (/^서버 응답 오류/.test(errMsg(err).replace(/^Error:\s*/, ''))) fail(err);
+                  var html = /^서버 응답 오류/.test(errMsg(err).replace(/^Error:\s*/, ''));
+                  // 읽기만 하는 요청은 조용히 1번 더 (구글 서버가 가끔 오류 화면을 줌)
+                  if (READ_FNS[fn] && tries < 1) { tries++; setTimeout(go, 800); return; }
+                  if (html && !READ_FNS[fn]) fail(new Error('서버 응답이 중간에 끊겼어요. 저장됐는지 다시 불러와 확인할게요. [' + fn + ']'));
+                  else if (html) fail(err);
                   else fail(new Error('서버에 연결하지 못했습니다 [' + fn + ']. 인터넷 연결을 확인하고 ↻를 눌러 주세요.'));
                 });
+        };
+        go();
         return;
       }
       var runner = google.script.run.withSuccessHandler(resolve).withFailureHandler(fail);
@@ -964,11 +981,12 @@ tr.quit td { color: var(--muted); }
     if (!r.att) {
       var t = mins(r.time), before = t != null && nowMin() < t;
       if (r.nudge === 'wait') {
-        h += '<div class="row"><div class="act"><button class="btn warn" type="button" data-act="nudge-off">발송 대기 중 · 취소하기</button></div><p class="note warn">' + esc(r.nudgeNote) + ' — 1~6분 안에 학생·학부모에게 나갑니다.</p></div>';
-      } else if (r.nudge === 'sent') {
-        h += '<p class="note">' + esc(r.nudgeNote) + '</p>';
+        h += '<div class="row"><div class="act"><button class="btn warn" type="button" data-act="nudge-off">' + NWHO[r.nudgeWho || 'both'] + ' 발송 대기 중 · 취소하기</button></div><p class="note warn">' + esc(r.nudgeNote) + ' — 1~6분 안에 ' + NWHO[r.nudgeWho || 'both'] + '에게 나갑니다.' + ((r.nudgeTo || []).length ? ' (먼저 보낸 쪽: ' + esc(r.nudgeTo.join('·')) + ')' : '') + '</p></div>';
       } else {
-        h += '<div class="row"><div class="act"><button class="btn" type="button" data-act="nudge-on"' + (before ? ' disabled' : '') + '>미도착 알림 보내기 (학생·학부모)</button></div>' +
+        var need = nudgeNeed(r);
+        if (r.nudge === 'sent') h += '<p class="note">' + esc(r.nudgeNote) + '</p>';
+        if (need.length) h += '<div class="row"><div class="lab"><span>미도착 알림</span><span>받는 사람을 골라 주세요</span></div><div class="act">' +
+          need.map(function (w) { return '<button class="btn" type="button" data-act="nudge-on" data-who="' + w + '"' + (before ? ' disabled' : '') + '>✉ ' + NWHO[w] + '에게 보내기</button>'; }).join('') + '</div>' +
           (before ? '<p class="note">예정 시간 이후에 보낼 수 있습니다.</p>' : '') +
           (r.nudge === 'fail' ? '<p class="note bad">' + esc(r.nudgeNote) + '</p>' : '') + '</div>';
       }
@@ -1409,25 +1427,30 @@ tr.quit td { color: var(--muted); }
   }
 
   // 미도착 알림 바로 보내기 버튼 (확인할 것 · 칸 · 목록)
+  // 미도착 알림 받는 사람
+  var NWHO = { student: '학생', parent: '학부모', both: '학생·학부모' };
+  function nudgeNeed(r) { var to = r.nudgeTo || (r.nudge === 'sent' ? ['학생', '학부모'] : []); return ['student', 'parent'].filter(function (w) { return to.indexOf(NWHO[w]) === -1; }); }
   function nudgeBtn(r) {
     var k = esc(key(r));
     if (r.att) return '';
-    if (r.nudge === 'wait') return '<button class="nbtn wait" type="button" data-nudge-off="' + k + '">발송 대기 · 취소</button>';
-    if (r.nudge === 'sent') return '<span class="nbtn done">✓ 알림 보냄</span>';
+    if (r.nudge === 'wait') return '<button class="nbtn wait" type="button" data-nudge-off="' + k + '">' + NWHO[r.nudgeWho || 'both'] + ' 발송 대기 · 취소</button>';
+    var to = r.nudgeTo || (r.nudge === 'sent' ? ['학생', '학부모'] : []), need = nudgeNeed(r);
+    var done = to.length ? '<span class="nbtn done">✓ ' + esc(to.join('·')) + '</span>' : '';
     var t = mins(r.time);
-    if (t == null || nowMin() < t) return '';
-    return '<button class="nbtn" type="button" data-nudge-on="' + k + '">✉ 미도착 알림 보내기</button>';
+    if (!need.length || t == null || nowMin() < t) return done;
+    return '<span class="nbtns">' + done + need.map(function (w) { return '<button class="nbtn" type="button" data-nudge-on="' + k + '" data-who="' + w + '">✉ ' + NWHO[w] + '에게</button>'; }).join('') + '</span>';
   }
   function doNudge(b) {
     var on = b.hasAttribute('data-nudge-on'), k = on ? b.dataset.nudgeOn : b.dataset.nudgeOff;
     if (!findRow(k)) return;
+    var who = b.dataset.who || 'both';
     if (on && b.dataset.sure !== '1') {
-      b.dataset.sure = '1'; b.textContent = '한 번 더 누르면 발송 대기';
-      setTimeout(function () { if (b.isConnected) { b.dataset.sure = ''; b.textContent = '✉ 미도착 알림 보내기'; } }, 3000);
+      b.dataset.sure = '1'; b.textContent = '한 번 더 → ' + NWHO[who] + '에게';
+      setTimeout(function () { if (b.isConnected) { b.dataset.sure = ''; b.textContent = '✉ ' + NWHO[who] + '에게'; } }, 3000);
       return;
     }
     b.disabled = true;
-    save(k, 'apiNudge', [on]).then(function () { render(); });
+    save(k, 'apiNudge', on ? [true, who] : [false]).then(function () { render(); });
   }
   function sheetMates() {
     return state.rows.filter(function (r) { return status(r).k !== 'cancel'; })
@@ -1649,8 +1672,9 @@ tr.quit td { color: var(--muted); }
       save(k, 'apiUpdate', ['out', ''], function (x) { x.out = ''; }); return;
     }
     if (act === 'nudge-on') {
-      if (b.dataset.sure !== '1') { b.dataset.sure = '1'; b.textContent = '한 번 더 누르면 발송 대기'; setTimeout(function () { if (b.isConnected) { b.dataset.sure = ''; b.textContent = '미도착 알림 보내기 (학생·학부모)'; } }, 3000); return; }
-      save(k, 'apiNudge', [true]); return;
+      var nw = b.dataset.who || 'both';
+      if (b.dataset.sure !== '1') { b.dataset.sure = '1'; b.textContent = '한 번 더 누르면 ' + NWHO[nw] + '에게 발송'; setTimeout(function () { if (b.isConnected) { b.dataset.sure = ''; b.textContent = '✉ ' + NWHO[nw] + '에게 보내기'; } }, 3000); return; }
+      save(k, 'apiNudge', [true, nw]); return;
     }
     if (act === 'nudge-off') { save(k, 'apiNudge', [false]); return; }
     if (act === 'ack-boss') { save(k, 'apiAckBoss', [], function (x) { x.bossAck = auth.staff + ' ' + hhmm(); }); return; }
