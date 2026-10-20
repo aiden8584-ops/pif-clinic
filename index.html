@@ -916,7 +916,8 @@ tr.quit td { color: var(--muted); }
     ['late', '미도착', function (s) { return s.k === 'late'; }, 'hide']
   ];
   try { var saved = localStorage.getItem('pif_filter'); if (saved) state.filter = saved; } catch (e) {}
-  state.clsF = '';   // 반 거르기 (화면을 다시 열면 전체로)
+  state.clsSel = {};   // 반 거르기 (여러 반 고르기, 화면을 다시 열면 전체로)
+  function clsOn() { return Object.keys(state.clsSel).length > 0; }
 
   // ---------- 그리기 ----------
   function renderFilters() {
@@ -933,11 +934,11 @@ tr.quit td { color: var(--muted); }
     // 반 버튼: 오늘 온 반이 2개 이상일 때만. 누르면 그 반만, 한 번 더 누르면 전체
     var cm = {}, cl = [];
     state.rows.forEach(function (r) { if (!r.cls || status(r).k === 'cancel') return; if (!cm[r.cls]) { cm[r.cls] = { n: 0, c: r.color || '' }; cl.push(r.cls); } cm[r.cls].n++; });
-    if (state.clsF && !cm[state.clsF]) state.clsF = '';
+    Object.keys(state.clsSel).forEach(function (c) { if (!cm[c]) delete state.clsSel[c]; });
     if (cl.length > 1) {
       cl.sort(function (a, b) { return a.localeCompare(b, 'ko'); });
       html += '<span class="fsep" aria-hidden="true"></span>' + cl.map(function (c) {
-        return '<button class="f fc" type="button" data-fc="' + esc(c) + '" aria-pressed="' + (state.clsF === c) + '"><i style="background:' + esc(cm[c].c) + '"></i>' + esc(c) + ' <b>' + cm[c].n + '</b></button>';
+        return '<button class="f fc" type="button" data-fc="' + esc(c) + '" aria-pressed="' + !!state.clsSel[c] + '"><i style="background:' + esc(cm[c].c) + '"></i>' + esc(c) + ' <b>' + cm[c].n + '</b></button>';
       }).join('');
     }
     $('filters').innerHTML = html;
@@ -1072,7 +1073,7 @@ tr.quit td { color: var(--muted); }
     var q = state.q.trim();
     var list = state.rows.filter(function (r) {
       if (!f[2](status(r), r)) return false;
-      if (state.clsF && r.cls !== state.clsF) return false;
+      if (clsOn() && !state.clsSel[r.cls]) return false;
       return !q || (r.name + ' ' + r.cls + ' ' + r.school).indexOf(q) !== -1;
     }).sort(function (a, b) {
       var sa = status(a).k, sb = status(b).k;
@@ -1473,7 +1474,7 @@ tr.quit td { color: var(--muted); }
     state.open[k] = true;
     if (state.layout === 'card') {
       if (state.filter !== 'all') { state.filter = 'all'; try { localStorage.setItem('pif_filter', 'all'); } catch (e) {} }
-      state.q = ''; $('q').value = ''; state.clsF = '';
+      state.q = ''; $('q').value = ''; state.clsSel = {};
       render();
       var c = document.querySelector('.card[data-k="' + cssEsc(k) + '"]');
       if (c) { c.scrollIntoView({ behavior: 'smooth', block: 'center' }); c.classList.add('flash'); setTimeout(function () { c.classList.remove('flash'); }, 1600); }
@@ -1705,7 +1706,7 @@ tr.quit td { color: var(--muted); }
 
   $('filters').addEventListener('click', function (ev) {
     var b = ev.target.closest('.f'); if (!b) return;
-    if (b.dataset.fc != null) { state.clsF = state.clsF === b.dataset.fc ? '' : b.dataset.fc; render(); return; }
+    if (b.dataset.fc != null) { var fc = b.dataset.fc; if (state.clsSel[fc]) delete state.clsSel[fc]; else state.clsSel[fc] = 1; render(); return; }   // 누를 때마다 그 반 켜기·끄기 (여러 반 가능)
     state.filter = b.dataset.f;
     try { localStorage.setItem('pif_filter', state.filter); } catch (e) {}
     render();
