@@ -327,6 +327,21 @@ main .wrap { padding-block: 14px 40px; }
 .ltb tbody tr:hover td { background: var(--bg); }
 .ltb tr.hl td { background: var(--warn-soft); }
 .ltb td.mono { font-family: var(--mono); font-size: 13.5px; }
+/* 목록에서 바로 고르기 */
+.ltb .lsel { min-height: 38px; min-width: 84px; padding: 4px 6px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); font-size: 13.5px; }
+.ltb .lsel.ok { background: var(--ok-soft); border-color: var(--ok); color: var(--ok); font-weight: 600; }
+.ltb .lsel.mid { background: var(--warn-soft); border-color: var(--warn); color: var(--warn); font-weight: 600; }
+.ltb .lsel.bad { background: var(--bad-soft); border-color: var(--bad); color: var(--bad); font-weight: 600; }
+.ltb .lsel:disabled, .ltb .lsp:disabled { opacity: .4; }
+.ltb .lchk { display: inline-grid; place-items: center; width: 38px; height: 38px; cursor: pointer; }
+.ltb .lchk input { width: 22px; height: 22px; accent-color: var(--accent); }
+.ltb .lbtn { min-height: 34px; padding: 4px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); font-size: 13px; font-weight: 600; font-family: var(--font); }
+.ltb .lbtn.pri { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.ltb .lsp { min-width: 150px; min-height: 38px; padding: 6px 9px; font-size: 13.5px; }
+.ltb td.lname { cursor: pointer; }
+.ltb td.ltodo { white-space: normal; min-width: 140px; max-width: 220px; font-size: 13px; }
+.ltb td.ltodo span { display: inline-block; background: var(--accent-soft); color: var(--ink); border-radius: 6px; padding: 2px 7px; overflow-wrap: anywhere; }
+.ltb tr.busy td { opacity: .6; }
 /* 옆으로 밀어도 학생 이름 칸은 왼쪽에 남김 */
 .ltb td:nth-child(2) { position: sticky; left: 0; z-index: 1; background: var(--surface); box-shadow: 1px 0 0 var(--line); }
 .ltb th:nth-child(2) { position: sticky; left: 0; z-index: 2; box-shadow: 1px 0 0 var(--line); }
@@ -941,6 +956,8 @@ tr.quit td { color: var(--muted); }
       return h;
     }
     h += '<div class="body">' + histHTML(r) + lhistHTML(r);
+    // 해야 할 일 (일정변경·수업과제에서 옴 — 등원 전에도 보여 줌)
+    if (r.todo) h += '<div class="row"><div class="lab"><span>해야 할 일</span></div><div class="todo">' + esc(r.todo) + '</div></div>';
     // 등원
     h += '<div class="row"><div class="lab"><span>등원</span></div>' + seg('att', state.choices.att || [], r.att, 'att att5') + '</div>';
     // 미도착 알림
@@ -959,7 +976,6 @@ tr.quit td { color: var(--muted); }
       h += '<p class="note">' + esc(r.nudgeNote) + '</p>';
     }
     if (r.att === '출석' || r.att === '지각') {
-      if (r.todo) h += '<div class="row"><div class="lab"><span>해야 할 일</span></div><div class="todo">' + esc(r.todo) + '</div></div>';
       h += '<div class="row"><div class="lab"><span>오늘 체크</span><span>다시 누르면 지워집니다</span></div><div class="tasks">' +
         '<span class="k">워크북</span>' + seg('wb', state.choices.wb || [], r.wb) +
         '<span class="k">실전문제</span>' + seg('extra', state.choices.extra || [], r.extra) +
@@ -1207,8 +1223,7 @@ tr.quit td { color: var(--muted); }
   document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape' && !$('msgBox').hidden) $('msgBox').hidden = true; });
 
   // ---------- 한눈에 보기 ----------
-  state.layout = 'card'; state.sheetK = null;
-  try { var lay = localStorage.getItem('pif_layout'); if (lay === 'board' || lay === 'list') state.layout = lay; } catch (e) {}
+  state.layout = 'list'; state.sheetK = null;   // 오늘 클리닉은 목록 보기만 (카드·칸 보기는 10.21에 뺌)
   function busyNow() { var a = document.activeElement; return pendingCount() > 0 || (a && a.dataset && a.dataset.text); }
   var GROUPS = [['plan', '예정', 'var(--line)', function (k) { return k === 'plan' || k === 'start'; }],
                 ['late', '미도착', 'var(--warn)', function (k) { return k === 'late'; }],
@@ -1236,8 +1251,7 @@ tr.quit td { color: var(--muted); }
     var done = cnt[3] + cnt[4];
     var h = '<section class="sum" aria-label="진행 요약"><div class="sum-h"><span class="cap">오늘 <b>' + rows.length + '명</b> 중 <b>' + done + '명</b> 끝 (' + Math.round(done / rows.length * 100) + '%) · 지금 재실 <b>' + cnt[2] + '명</b></span>' +
       '<span style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button type="button" class="sndbtn" data-snd aria-pressed="' + state.sound + '">' + (state.sound ? '🔔 알림음 켬' : '🔕 알림음 끔') + '</button>' +
-      '<span class="lay" role="group" aria-label="보기 방식">' + [['card', '카드'], ['board', '칸'], ['list', '목록']].map(function (x) {
-        return '<button type="button" data-lay="' + x[0] + '" aria-pressed="' + (state.layout === x[0]) + '">' + x[1] + '</button>'; }).join('') + '</span></span></div>' +
+      '</span></div>' +
       '<div class="nums">' + GROUPS.map(function (g, i) {
         return '<button class="num" type="button" data-num="' + g[0] + '" aria-pressed="' + (state.filter === g[0]) + '"><b>' + cnt[i] + '</b><span><i style="background:' + g[2] + '"></i>' + g[1] + '</span></button>'; }).join('') + '</div>' +
       '<div class="pbar">' + [3, 2, 1, 4, 0].map(function (i) { return cnt[i] ? '<div title="' + GROUPS[i][1] + ' ' + cnt[i] + '명" style="flex:' + cnt[i] + ';background:' + GROUPS[i][2] + '"></div>' : ''; }).join('') + '</div></section>';
@@ -1271,7 +1285,7 @@ tr.quit td { color: var(--muted); }
     return '<span class="ic3 i-no" title="' + esc(v) + '">✕</span>';
   }
   // ---- 목록 보기: 제목을 누르면 정렬 (오름 → 내림 → 기본 순서) ----
-  var LCOLS = [['time', '시간'], ['name', '이름'], ['cls', '반'], ['st', '상태'], ['wb', '워크북'], ['extra', '실전'], ['retest', '재시'], ['video', '영상'], ['out', '하원'], ['memo', '확인할 것']];
+  var LCOLS = [['time', '시간'], ['name', '이름'], ['cls', '반'], ['st', '상태'], ['todo', '해야 할 일'], ['att', '등원'], ['wb', '워크북'], ['extra', '실전'], ['retest', '재시'], ['video', '영상'], ['out', '하원'], ['sp', '미완 사유'], ['memo', '확인할 것']];
   var ST_RANK = { late: 0, start: 1, in: 2, plan: 3, out: 4, abs: 5, cancel: 6 };
   state.lsort = null;
   try { var ls0 = JSON.parse(localStorage.getItem('pif_lsort') || 'null'); if (ls0 && ls0.k && (ls0.d === 1 || ls0.d === -1)) state.lsort = ls0; } catch (e) {}
@@ -1295,6 +1309,9 @@ tr.quit td { color: var(--muted); }
       case 'video': return r.video ? 0 : null;
       case 'out': return r.out || null;
       case 'memo': v = listMemo(r).length; return v ? -v : null;
+      case 'att': return r.att || null;
+      case 'todo': return r.todo || null;
+      case 'sp': return r.special || null;
     }
     return null;
   }
@@ -1326,13 +1343,71 @@ tr.quit td { color: var(--muted); }
       }).join('') + '</tr></thead><tbody>' +
       lsorted(list).map(function (r) {
         var s = status(r), memo = listMemo(r);
-        return '<tr class="' + (s.k === 'late' ? 'hl' : '') + '" data-open="' + esc(key(r)) + '"><td class="mono">' + esc(r.time) + '</td><td><b>' + esc(r.name) + '</b></td>' +
+        var k = key(r), cancel = s.k === 'cancel', inn = r.att === '출석' || r.att === '지각', busy = !!state.busy[k];
+        var dis = function (on) { return on && !busy ? '' : ' disabled'; };
+        return '<tr class="' + (s.k === 'late' ? 'hl' : '') + (busy ? ' busy' : '') + '" data-open="' + esc(k) + '" data-lk="' + esc(k) + '"><td class="mono">' + esc(r.time) + '</td>' +
+          '<td class="lname"><b>' + esc(r.name) + '</b></td>' +
           '<td>' + (r.cls ? '<span class="chip" style="background:' + esc(r.color || '') + '">' + esc(r.cls) + '</span>' : '') + '</td><td><span class="pill ' + s.c + '">' + esc(s.t) + '</span></td>' +
-          '<td>' + icon(r.wb, '완료', ['미지참']) + '</td><td>' + icon(r.extra, '완료', ['받아감']) + '</td><td>' + icon(r.retest, '통과', ['미실시']) + '</td>' +
-          '<td>' + (r.video ? '<span class="ic3 i-ok">✓</span>' : '<span class="ic3 i-none">·</span>') + '</td><td class="mono">' + esc(r.out || '—') + '</td>' +
+          '<td class="ltodo">' + (r.todo ? '<span>' + esc(r.todo) + '</span>' : '') + '</td>' +
+          '<td>' + lsel('att', state.choices.att || [], r.att, dis(!cancel)) + '</td>' +
+          '<td>' + lsel('wb', state.choices.wb || [], r.wb, dis(inn), '완료', ['미지참']) + '</td>' +
+          '<td>' + lsel('extra', state.choices.extra || [], r.extra, dis(inn), '완료', ['받아감']) + '</td>' +
+          '<td>' + lsel('retest', state.choices.retest || [], r.retest, dis(inn), '통과', ['미실시']) + '</td>' +
+          '<td><label class="lchk"><input type="checkbox" data-lf="video"' + (r.video ? ' checked' : '') + dis(inn) + ' aria-label="영상보강 완료"></label></td>' +
+          '<td class="mono">' + (r.out ? esc(r.out) + ' <button class="lbtn" type="button" data-lact="out-undo"' + dis(true) + '>취소</button>'
+                                      : inn ? '<button class="lbtn pri" type="button" data-lact="out"' + dis(true) + '>하원</button>' : '—') + '</td>' +
+          '<td>' + (needReason(r) || r.special ? '<input class="txt lsp' + (needReason(r) && !r.special ? ' need' : '') + '" data-lt="special" value="' + esc(r.special) + '" placeholder="미완 사유" maxlength="300"' + dis(true) + '>' : '') + '</td>' +
           '<td style="color:var(--bad);font-size:13px">' + memo.join(' · ') + ((s.k === 'late' || s.k === 'start') ? ' ' + nudgeBtn(r) : '') + '</td></tr>';
       }).join('') + '</tbody></table></div>';
   }
+  // 목록 칸 안 선택 상자 (good = 초록, mid = 노랑, 그 밖 = 빨강)
+  function lsel(field, list, cur, extra, good, mid) {
+    var tone = !cur ? '' : good ? (cur === good ? ' ok' : (mid || []).indexOf(cur) !== -1 ? ' mid' : ' bad')
+      : field === 'att' ? (cur === '출석' ? ' ok' : cur === '지각' ? ' mid' : ' bad') : '';
+    return '<select class="lsel' + tone + '" data-lf="' + field + '"' + (extra || '') + '><option value="">—</option>' +
+      list.map(function (v) { return '<option' + (v === cur ? ' selected' : '') + '>' + esc(v) + '</option>'; }).join('') +
+      (cur && list.indexOf(cur) === -1 ? '<option selected>' + esc(cur) + '</option>' : '') + '</select>';
+  }
+  // 목록에서 바로 바꾸기: 선택 상자·체크 → 저장 (카드와 같은 저장 방식)
+  $('grid').addEventListener('change', function (ev) {
+    var el = ev.target, f = el.dataset && el.dataset.lf, tr = el.closest && el.closest('tr[data-lk]');
+    if (!f || !tr) return;
+    var k = tr.dataset.lk, r = findRow(k); if (!r) return;
+    var nv = el.type === 'checkbox' ? el.checked : el.value;
+    if (f === 'att' && r.att && nv !== r.att && (r.out || r.wb || r.extra) &&
+        !window.confirm(r.name + ' 학생의 등원을 "' + (nv || '빈칸') + '"(으)로 바꿀까요?\n오늘 체크·하원 기록이 있는 학생입니다.')) { el.value = r.att; return; }
+    save(k, 'apiUpdate', [f, nv], function (x) { x[f] = nv; });
+  });
+  // 목록의 미완 사유: 칸을 벗어나거나 Enter → 저장
+  function commitListText(input) {
+    var tr = input.closest('tr[data-lk]'); if (!tr) return;
+    var k = tr.dataset.lk, r = findRow(k), f = input.dataset.lt, v = input.value.trim();
+    if (!r || (r[f] || '') === v) return;
+    save(k, 'apiUpdate', [f, v], function (x) { x[f] = v; });
+  }
+  $('grid').addEventListener('focusout', function (ev) { if (ev.target.dataset && ev.target.dataset.lt) commitListText(ev.target); });
+  $('grid').addEventListener('keydown', function (ev) {
+    if (ev.isComposing || ev.keyCode === 229) return;
+    if (ev.key === 'Enter' && ev.target.dataset && ev.target.dataset.lt) { ev.preventDefault(); ev.target.blur(); }
+  });
+  function listAct(b) {
+    var tr = b.closest('tr[data-lk]'), k = tr && tr.dataset.lk, r = k && findRow(k); if (!r) return;
+    if (b.dataset.lact === 'out') {
+      var empty = !r.wb && !r.extra && !r.retest && !r.video, noReason = needReason(r) && !r.special;
+      if ((empty || noReason) && b.dataset.sure !== '1') {
+        b.dataset.sure = '1'; b.textContent = noReason ? '사유 없이?' : '기록 없이?';
+        toast(noReason ? '미완 사유를 먼저 적어 주세요. 학부모 문자에 그대로 들어갑니다.' : '오늘 체크가 비어 있어요. 한 번 더 누르면 그대로 하원합니다.', true);
+        if (noReason) { var sp = tr.querySelector('[data-lt="special"]'); if (sp) sp.focus(); }
+        setTimeout(function () { if (b.isConnected) { b.dataset.sure = ''; b.textContent = '하원'; } }, 5000);
+        return;
+      }
+      save(k, 'apiUpdate', ['out', 'now'], function (x) { x.out = hhmm(); });
+    } else if (b.dataset.lact === 'out-undo') {
+      if (b.dataset.sure !== '1') { b.dataset.sure = '1'; b.textContent = '정말?'; setTimeout(function () { if (b.isConnected) { b.dataset.sure = ''; b.textContent = '취소'; } }, 2500); return; }
+      save(k, 'apiUpdate', ['out', ''], function (x) { x.out = ''; });
+    }
+  }
+
   // 미도착 알림 바로 보내기 버튼 (확인할 것 · 칸 · 목록)
   function nudgeBtn(r) {
     var k = esc(key(r));
@@ -1395,6 +1470,8 @@ tr.quit td { color: var(--muted); }
     if (cn) { if (cn.disabled) return; var ms = sheetMates(), cur = findRow(state.sheetK), t = ms[ms.indexOf(cur) + Number(cn.dataset.cnav)]; if (t) { state.sheetK = key(t); render(); } return; }
     var nb = ev.target.closest('[data-nudge-on], [data-nudge-off]'); if (nb) { doNudge(nb); return; }
     var so = ev.target.closest('[data-sort]'); if (so) { lsortClick(so.dataset.sort); return; }
+    var la = ev.target.closest('[data-lact]'); if (la) { if (!la.disabled) listAct(la); return; }
+    if (ev.target.closest('tr[data-lk] select, tr[data-lk] input, tr[data-lk] label, tr[data-lk] button')) return;
     var o = ev.target.closest('[data-open]'); if (o) openStudent(o.dataset.open);
   });
   $('grid').addEventListener('keydown', function (ev) {
