@@ -629,6 +629,7 @@ tr.quit td { color: var(--muted); }
       <button class="tab" type="button" data-v="qa">질문 <span class="cnt" id="qaCnt" hidden></span></button>
       <button class="tab" type="button" data-v="roster">학생명단</button>
       <button class="tab" type="button" data-v="week">주간 현황</button>
+      <button class="tab" type="button" data-v="stu">학생 현황</button>
       <button class="tab" type="button" data-v="rule">규정·설정</button>
     </nav>
     <div id="todayTools" style="display:grid;gap:10px">
@@ -656,6 +657,7 @@ tr.quit td { color: var(--muted); }
     <div id="view-notice" hidden></div>
     <div id="view-mat" hidden></div>
     <div id="view-qa" hidden></div>
+    <div id="view-stu" hidden></div>
   </div>
 </main>
 <div class="toast" id="toast" hidden></div>
@@ -750,14 +752,14 @@ tr.quit td { color: var(--muted); }
 
   // ---------- 입장(공용 비밀번호) ----------
   var AUTH_FNS = { apiGetToday: 1, apiUpdate: 1, apiNudge: 1, apiAckBoss: 1, apiSetNotice: 1, apiAckNotice: 1,
-    apiMsgPreview: 1, apiHistory: 1, apiReportList: 1, apiReportExclude: 1, apiReportReason: 1, apiReportSendNow: 1, apiWeekly: 1, apiLessonGet: 1, apiLessonClass: 1, apiLessonStudent: 1, apiLessonAbsent: 1, apiLessonSendNow: 1, apiLessonBulk: 1, apiLessonClear: 1, apiLessonExclAll: 1, apiLessonSendOne: 1, apiLessonSendMany: 1, apiNoticeList: 1, apiNoticeSave: 1, apiLessonHist: 1, apiLessonLog: 1, apiLessonDay: 1, apiMatList: 1, apiMatUpload: 1, apiMatHide: 1, apiQList: 1, apiQAnswer: 1, apiQPhoto: 1,
+    apiMsgPreview: 1, apiHistory: 1, apiReportList: 1, apiReportExclude: 1, apiReportReason: 1, apiReportSendNow: 1, apiWeekly: 1, apiLessonGet: 1, apiLessonClass: 1, apiLessonStudent: 1, apiLessonAbsent: 1, apiLessonSendNow: 1, apiLessonBulk: 1, apiLessonClear: 1, apiLessonExclAll: 1, apiLessonSendOne: 1, apiLessonSendMany: 1, apiNoticeList: 1, apiNoticeSave: 1, apiLessonHist: 1, apiLessonLog: 1, apiLessonDay: 1, apiMatList: 1, apiMatUpload: 1, apiMatHide: 1, apiQList: 1, apiQAnswer: 1, apiQPhoto: 1, apiStuStat: 1,
     apiReqList: 1, apiReqConnect: 1, apiReqDecide: 1, apiChangeAdd: 1, apiChangeDelete: 1, apiRosterGet: 1, apiRosterSave: 1, apiWelcomePreview: 1, apiWelcomeSend: 1, apiRuleGet: 1, apiSettingsSave: 1 };
   var auth = { token: '', staff: '', admin: false };
   try { auth.token = localStorage.getItem('pif_token') || ''; auth.staff = localStorage.getItem('pif_staff') || ''; } catch (e) {}
 
   // 다시 시도해도 되는 '읽기만 하는' 요청 (저장·발송·공지 저장은 넣지 않음: 두 번 실행될 수 있음)
   var READ_FNS = { apiLoginInfo: 1, apiGetToday: 1, apiHistory: 1, apiLessonHist: 1, apiMsgPreview: 1, apiLessonGet: 1, apiLessonLog: 1, apiLessonDay: 1,
-    apiReqList: 1, apiRosterGet: 1, apiRuleGet: 1, apiReportList: 1, apiWeekly: 1, apiNoticeList: 1, apiMatList: 1, apiQList: 1, apiQPhoto: 1 };
+    apiReqList: 1, apiRosterGet: 1, apiRuleGet: 1, apiReportList: 1, apiWeekly: 1, apiNoticeList: 1, apiMatList: 1, apiQList: 1, apiQPhoto: 1, apiStuStat: 1 };
   function call(fn) {
     var args = Array.prototype.slice.call(arguments, 1);
     if (AUTH_FNS[fn] && !DEMO) args.unshift(auth.token);
@@ -1763,8 +1765,8 @@ tr.quit td { color: var(--muted); }
               rq: '', rcls: '', rclsSel: {}, rst: '재원', ruleWarn: false, lopen: {} };
     try { var sv = localStorage.getItem('pif_view'); if (sv) V.view = sv; } catch (e) {}
     try { var ll = localStorage.getItem('pif_llayout'); if (ll === 'board' || ll === 'list') V.llay = ll; } catch (e) {}
-    var TITLES = { today: '오늘 클리닉', report: '성취도 문자', lesson: '수업피드백', llog: '수업로그', mat: '자료', qa: '학생 질문', notice: '학생 공지', req: '변경신청', roster: '학생명단', week: '주간 현황', rule: '규정·설정' };
-    var VIEWS = ['today', 'report', 'lesson', 'llog', 'notice', 'mat', 'qa', 'req', 'roster', 'week', 'rule'];
+    var TITLES = { today: '오늘 클리닉', report: '성취도 문자', lesson: '수업피드백', llog: '수업로그', mat: '자료', qa: '학생 질문', stu: '학생 현황', notice: '학생 공지', req: '변경신청', roster: '학생명단', week: '주간 현황', rule: '규정·설정' };
+    var VIEWS = ['today', 'report', 'lesson', 'llog', 'notice', 'mat', 'qa', 'stu', 'req', 'roster', 'week', 'rule'];
 
     // ---------- 미리보기용 예시 데이터 ----------
     if (DEMO) (function () {
@@ -2005,6 +2007,12 @@ tr.quit td { color: var(--muted); }
               { name: '(예시) 박도윤', att: '지각', hw: '완료', score: '95', pass: '통과', retest: '', atti: '보완', cmt: '지각 15분', excl: false, status: '발송완료 22:30' }] }];
           return { date: ymd, today: d(0), classes: cl, dates: dates };
         },
+        apiStuStat: function () {
+          return { today: '', classes: ['서울1', '서울2', '서초1'], students: [], retest: [
+            { disp: '(예시) 김서윤', cls: '서울1', date: '2026-10-20', score: 72, line: 80, range: '4과 단어', retest: '' },
+            { disp: '(예시) 강예린', cls: '서울1', date: '2026-10-13', score: 65, line: 80, range: '3과 본문', retest: '미통과' },
+            { disp: '(예시) 박서연', cls: '서울2', date: '2026-10-17', score: 68, line: 80, range: '4과 본문 전체', retest: '' }] };
+        },
         apiQList: function () { var q = demoQ.questions; return { questions: JSON.parse(JSON.stringify(q)), waiting: q.filter(function (x) { return x.status === '대기'; }).length }; },
         apiQAnswer: function (id, mode, answer) {
           var q = demoQ.questions.filter(function (x) { return x.id === id; })[0];
@@ -2133,8 +2141,8 @@ tr.quit td { color: var(--muted); }
     }
     $('tabs').addEventListener('click', function (ev) { var b = ev.target.closest('.tab'); if (b) { show(b.dataset.v); window.scrollTo(0, 0); } });
 
-    var FETCH = { lesson: 'apiLessonGet', req: 'apiReqList', roster: 'apiRosterGet', rule: 'apiRuleGet', report: 'apiReportList', week: 'apiWeekly', notice: 'apiNoticeList', llog: 'apiLessonLog', mat: 'apiMatList', qa: 'apiQList' };
-    var KEY = { lesson: 'L', req: 'Q', roster: 'RO', rule: 'RU', report: 'RP', week: 'WK', notice: 'NT', llog: 'LG', mat: 'MT', qa: 'QA' };
+    var FETCH = { lesson: 'apiLessonGet', req: 'apiReqList', roster: 'apiRosterGet', rule: 'apiRuleGet', report: 'apiReportList', week: 'apiWeekly', notice: 'apiNoticeList', llog: 'apiLessonLog', mat: 'apiMatList', qa: 'apiQList', stu: 'apiStuStat' };
+    var KEY = { lesson: 'L', req: 'Q', roster: 'RO', rule: 'RU', report: 'RP', week: 'WK', notice: 'NT', llog: 'LG', mat: 'MT', qa: 'QA', stu: 'ST' };
     function reload() {
       var v = V.view; if (!FETCH[v]) return;
       if (pending) return;
@@ -2147,7 +2155,37 @@ tr.quit td { color: var(--muted); }
         if (!V[KEY[v]]) $('view-' + v).innerHTML = '<div class="loading">불러오지 못했습니다. 위의 ↻를 눌러 다시 시도해 주세요.</div>';
       });
     }
-    function draw(v) { ({ lesson: drawLesson, req: drawReq, roster: drawRoster, rule: drawRule, report: drawReport, week: drawWeek, notice: drawNotice, llog: drawLlog, mat: drawMat, qa: drawQa })[v](); }
+    function draw(v) { ({ lesson: drawLesson, req: drawReq, roster: drawRoster, rule: drawRule, report: drawReport, week: drawWeek, notice: drawNotice, llog: drawLlog, mat: drawMat, qa: drawQa, stu: drawStu })[v](); }
+
+    // =========================== 학생 현황 (학습실 서버) ===========================
+    V.stab = 'retest'; V.scls = {};
+    function drawStu() {
+      var S = V.ST, h = '';
+      var tabsH = '<span class="lay" role="group" aria-label="학생 현황">' + [['retest', '재시험 대상 ' + S.retest.length]].map(function (x) {
+        return '<button type="button" data-st="' + x[0] + '" aria-pressed="' + (V.stab === x[0]) + '">' + esc(x[1]) + '</button>'; }).join('') + '</span>';
+      var rows = S.retest;
+      var cl = []; rows.forEach(function (r) { if (r.cls && cl.indexOf(r.cls) === -1) cl.push(r.cls); }); cl.sort(function (a, b) { return a.localeCompare(b, 'ko'); });
+      Object.keys(V.scls).forEach(function (c) { if (cl.indexOf(c) === -1) delete V.scls[c]; });
+      var on = Object.keys(V.scls).length, list = rows.filter(function (r) { return !on || V.scls[r.cls]; });
+      var who = {}; list.forEach(function (r) { who[r.disp] = 1; });
+      h += '<div class="vhead">' + tabsH + '<span class="sub">최근 3주 리뷰 미통과 중 재시험 통과 기록이 없는 학생 · 학생 ' + Object.keys(who).length + '명 · 📝수업로그 기준</span></div>';
+      if (cl.length > 1) h += '<div class="filters" style="margin-bottom:12px"><button class="f" type="button" data-sc="" aria-pressed="' + !on + '">전체 <b>' + rows.length + '</b></button><span class="fsep" aria-hidden="true"></span>' +
+        cl.map(function (c) { return '<button class="f fc" type="button" data-sc="' + esc(c) + '" aria-pressed="' + !!V.scls[c] + '">' + esc(c) + ' <b>' + rows.filter(function (r) { return r.cls === c; }).length + '</b></button>'; }).join('') + '</div>';
+      if (!list.length) { h += '<div class="empty">재시험 대상이 없어요.</div>'; paint($('view-stu'), h); return; }
+      h += '<div class="panel tablewrap"><table class="t"><thead><tr><th>표시명</th><th>반</th><th>수업 날짜</th><th>리뷰 점수</th><th>통과 기준</th><th>리뷰 범위</th><th>재시험</th></tr></thead><tbody>' +
+        list.map(function (r) {
+          return '<tr><td><b>' + esc(r.disp) + '</b></td><td>' + esc(r.cls) + '</td><td class="num">' + mdw(r.date) + '</td>' +
+            '<td class="num"><b style="color:var(--bad)">' + (r.score != null ? r.score + '점' : '—') + '</b></td><td class="num">' + (r.line != null ? r.line + '점' : '—') + '</td>' +
+            '<td class="memo">' + esc(r.range || '') + '</td><td>' + (r.retest ? '<span class="pill s-late">' + esc(r.retest) + '</span>' : '<span class="pill s-plan">재시험 전</span>') + '</td></tr>';
+        }).join('') + '</tbody></table></div>';
+      paint($('view-stu'), h);
+    }
+    $('view-stu').addEventListener('click', function (ev) {
+      var t = ev.target.closest('[data-st]'); if (t) { V.stab = t.dataset.st; drawStu(); return; }
+      var c = ev.target.closest('[data-sc]'); if (!c) return;
+      var k = c.dataset.sc; if (!k) V.scls = {}; else if (V.scls[k]) delete V.scls[k]; else V.scls[k] = 1;
+      drawStu();
+    });
 
     // =========================== 학생 질문 (학습실 앱 ❓질문) ===========================
     V.qaf = 'wait'; V.qopen = {}; V.qimg = {};
