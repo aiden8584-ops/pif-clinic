@@ -541,7 +541,8 @@ table.t tr.hl td { background: var(--warn-soft); }
 table.t td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
 table.t td.memo { white-space: normal; min-width: 160px; color: var(--muted); }
 table.t.lgt td { vertical-align: top; }
-#view-qa { max-width: 920px; margin-inline: auto; }
+#view-qa, #view-push { max-width: 920px; margin-inline: auto; }
+.pform { padding: 14px; display: grid; gap: 12px; margin-bottom: 14px; }
 .qcard { padding: 14px; margin-bottom: 10px; display: grid; gap: 8px; }
 .qcard.wait { border-color: var(--warn); }
 .qcard .qh { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
@@ -625,6 +626,7 @@ tr.quit td { color: var(--muted); }
       <button class="tab" type="button" data-v="llog">수업로그</button>
       <button class="tab" type="button" data-v="notice">학생 공지</button>
       <button class="tab" type="button" data-v="mat">자료</button>
+      <button class="tab" type="button" data-v="push">앱 알림</button>
       <button class="tab" type="button" data-v="req">변경신청 <span class="cnt" id="reqCnt" hidden></span></button>
       <button class="tab" type="button" data-v="qa">질문 <span class="cnt" id="qaCnt" hidden></span></button>
       <button class="tab" type="button" data-v="roster">학생명단</button>
@@ -658,6 +660,7 @@ tr.quit td { color: var(--muted); }
     <div id="view-mat" hidden></div>
     <div id="view-qa" hidden></div>
     <div id="view-stu" hidden></div>
+    <div id="view-push" hidden></div>
   </div>
 </main>
 <div class="toast" id="toast" hidden></div>
@@ -752,14 +755,14 @@ tr.quit td { color: var(--muted); }
 
   // ---------- 입장(공용 비밀번호) ----------
   var AUTH_FNS = { apiGetToday: 1, apiUpdate: 1, apiNudge: 1, apiAckBoss: 1, apiSetNotice: 1, apiAckNotice: 1,
-    apiMsgPreview: 1, apiHistory: 1, apiReportList: 1, apiReportExclude: 1, apiReportReason: 1, apiReportSendNow: 1, apiWeekly: 1, apiLessonGet: 1, apiLessonClass: 1, apiLessonStudent: 1, apiLessonAbsent: 1, apiLessonSendNow: 1, apiLessonBulk: 1, apiLessonClear: 1, apiLessonExclAll: 1, apiLessonSendOne: 1, apiLessonSendMany: 1, apiNoticeList: 1, apiNoticeSave: 1, apiLessonHist: 1, apiLessonLog: 1, apiLessonDay: 1, apiMatList: 1, apiMatUpload: 1, apiMatHide: 1, apiQList: 1, apiQAnswer: 1, apiQPhoto: 1, apiStuStat: 1,
+    apiMsgPreview: 1, apiHistory: 1, apiReportList: 1, apiReportExclude: 1, apiReportReason: 1, apiReportSendNow: 1, apiWeekly: 1, apiLessonGet: 1, apiLessonClass: 1, apiLessonStudent: 1, apiLessonAbsent: 1, apiLessonSendNow: 1, apiLessonBulk: 1, apiLessonClear: 1, apiLessonExclAll: 1, apiLessonSendOne: 1, apiLessonSendMany: 1, apiNoticeList: 1, apiNoticeSave: 1, apiLessonHist: 1, apiLessonLog: 1, apiLessonDay: 1, apiMatList: 1, apiMatUpload: 1, apiMatHide: 1, apiQList: 1, apiQAnswer: 1, apiQPhoto: 1, apiStuStat: 1, apiPushInfo: 1, apiPushSend: 1, apiVideoStat: 1,
     apiReqList: 1, apiReqConnect: 1, apiReqDecide: 1, apiChangeAdd: 1, apiChangeDelete: 1, apiRosterGet: 1, apiRosterSave: 1, apiWelcomePreview: 1, apiWelcomeSend: 1, apiRuleGet: 1, apiSettingsSave: 1 };
   var auth = { token: '', staff: '', admin: false };
   try { auth.token = localStorage.getItem('pif_token') || ''; auth.staff = localStorage.getItem('pif_staff') || ''; } catch (e) {}
 
   // 다시 시도해도 되는 '읽기만 하는' 요청 (저장·발송·공지 저장은 넣지 않음: 두 번 실행될 수 있음)
   var READ_FNS = { apiLoginInfo: 1, apiGetToday: 1, apiHistory: 1, apiLessonHist: 1, apiMsgPreview: 1, apiLessonGet: 1, apiLessonLog: 1, apiLessonDay: 1,
-    apiReqList: 1, apiRosterGet: 1, apiRuleGet: 1, apiReportList: 1, apiWeekly: 1, apiNoticeList: 1, apiMatList: 1, apiQList: 1, apiQPhoto: 1, apiStuStat: 1 };
+    apiReqList: 1, apiRosterGet: 1, apiRuleGet: 1, apiReportList: 1, apiWeekly: 1, apiNoticeList: 1, apiMatList: 1, apiQList: 1, apiQPhoto: 1, apiStuStat: 1, apiPushInfo: 1, apiVideoStat: 1 };
   function call(fn) {
     var args = Array.prototype.slice.call(arguments, 1);
     if (AUTH_FNS[fn] && !DEMO) args.unshift(auth.token);
@@ -1765,8 +1768,8 @@ tr.quit td { color: var(--muted); }
               rq: '', rcls: '', rclsSel: {}, rst: '재원', ruleWarn: false, lopen: {} };
     try { var sv = localStorage.getItem('pif_view'); if (sv) V.view = sv; } catch (e) {}
     try { var ll = localStorage.getItem('pif_llayout'); if (ll === 'board' || ll === 'list') V.llay = ll; } catch (e) {}
-    var TITLES = { today: '오늘 클리닉', report: '성취도 문자', lesson: '수업피드백', llog: '수업로그', mat: '자료', qa: '학생 질문', stu: '학생 현황', notice: '학생 공지', req: '변경신청', roster: '학생명단', week: '주간 현황', rule: '규정·설정' };
-    var VIEWS = ['today', 'report', 'lesson', 'llog', 'notice', 'mat', 'qa', 'stu', 'req', 'roster', 'week', 'rule'];
+    var TITLES = { today: '오늘 클리닉', report: '성취도 문자', lesson: '수업피드백', llog: '수업로그', mat: '자료', qa: '학생 질문', stu: '학생 현황', push: '앱 알림', notice: '학생 공지', req: '변경신청', roster: '학생명단', week: '주간 현황', rule: '규정·설정' };
+    var VIEWS = ['today', 'report', 'lesson', 'llog', 'notice', 'mat', 'push', 'qa', 'stu', 'req', 'roster', 'week', 'rule'];
 
     // ---------- 미리보기용 예시 데이터 ----------
     if (DEMO) (function () {
@@ -1863,6 +1866,9 @@ tr.quit td { color: var(--muted); }
           { disp: '(예시) 박서연', cls: '서울2', school: '서울고', from: '2026-11-02', to: '2026-12-10', absent: 0, late: 2, makeup: 2, change: 2, flag: '' },
           { disp: '(예시) 김도윤', cls: '서울2', school: '서울고', from: '2026-11-02', to: '2026-12-10', absent: 0, late: 0, makeup: 0, change: 1, flag: '' }
         ] };
+      var demoPush = { classes: ['서울1', '서울2', '서초1', '상문1'], schools: ['서울고', '서초고', '상문고'], pushReady: true,
+        students: [{ disp: '(예시) 김서윤', cls: '서울1', school: '서울고' }, { disp: '(예시) 김도윤', cls: '서울2', school: '서울고' }, { disp: '(예시) 박도윤', cls: '서초1', school: '서초고' }],
+        log: [{ at: '2026-10-20 18:02', by: '원장', target: '서울2 · 학생+학부모', title: '내일 리뷰 테스트', body: '4과 본문 전체입니다.', n: '52', result: '보냄' }] };
       var demoQ = { questions: [
         { id: 'Q3', at: '2026-10-21 14:05', disp: '(예시) 김서윤', cls: '서울1', topic: '올인원 워크북 p.42', text: '3번에서 왜 to부정사가 아니라 동명사인지 모르겠어요.', photos: ['p1'], status: '대기', answer: '', by: '', answeredAt: '' },
         { id: 'Q2', at: '2026-10-20 21:40', disp: '(예시) 박도윤', cls: '서초1', topic: '', text: '모의고사 빈칸 7번 해설 부탁드려요', photos: [], status: '대기', answer: '', by: '', answeredAt: '' },
@@ -2007,8 +2013,21 @@ tr.quit td { color: var(--muted); }
               { name: '(예시) 박도윤', att: '지각', hw: '완료', score: '95', pass: '통과', retest: '', atti: '보완', cmt: '지각 15분', excl: false, status: '발송완료 22:30' }] }];
           return { date: ymd, today: d(0), classes: cl, dates: dates };
         },
+        apiVideoStat: function () { return { at: '10-21 15:20', rows: [
+            { disp: '(예시) 김서윤', cls: '서울1', total: 12, done: 9, todo: 3, todoList: ['10/20 4과 본문 2·3문단', '10/14 3과 서술형', '10/13 3과 본문'] },
+            { disp: '(예시) 김도윤', cls: '서울2', total: 10, done: 10, todo: 0, todoList: [] },
+            { disp: '(예시) 박도윤', cls: '서초1', err: '로그인 실패 (번호 확인)' }] }; },
+        apiPushInfo: function () { return JSON.parse(JSON.stringify(demoPush)); },
+        apiPushSend: function (d) {
+          var who = (d.type === 'all' ? '전체' : d.values.join(', ')) + ' · ' + d.roles.map(function (r) { return r === 'student' ? '학생' : '학부모'; }).join('+');
+          demoPush.log.unshift({ at: new Date().toISOString().slice(0, 16).replace('T', ' '), by: '원장', target: who, title: d.title, body: d.body, n: '3', result: '보냄' });
+          return { data: JSON.parse(JSON.stringify(demoPush)), msg: '알림을 보냈어요. 알림을 켠 기기에만 가요.', ok: true };
+        },
         apiStuStat: function () {
-          return { today: '', classes: ['서울1', '서울2', '서초1'], students: [], retest: [
+          return { today: '', classes: ['서울1', '서울2', '서초1'], students: [
+            { disp: '(예시) 김서윤', school: '서울고', cls: '서울1', lastStu: '2026-10-21 08:12', lastPar: '2026-10-02 21:40' },
+            { disp: '(예시) 김도윤', school: '서울고', cls: '서울2', lastStu: '2026-09-28 19:03', lastPar: '' },
+            { disp: '(예시) 박도윤', school: '서초고', cls: '서초1', lastStu: '', lastPar: '2026-10-19 22:15' }], retest: [
             { disp: '(예시) 김서윤', cls: '서울1', date: '2026-10-20', score: 72, line: 80, range: '4과 단어', retest: '' },
             { disp: '(예시) 강예린', cls: '서울1', date: '2026-10-13', score: 65, line: 80, range: '3과 본문', retest: '미통과' },
             { disp: '(예시) 박서연', cls: '서울2', date: '2026-10-17', score: 68, line: 80, range: '4과 본문 전체', retest: '' }] };
@@ -2141,8 +2160,8 @@ tr.quit td { color: var(--muted); }
     }
     $('tabs').addEventListener('click', function (ev) { var b = ev.target.closest('.tab'); if (b) { show(b.dataset.v); window.scrollTo(0, 0); } });
 
-    var FETCH = { lesson: 'apiLessonGet', req: 'apiReqList', roster: 'apiRosterGet', rule: 'apiRuleGet', report: 'apiReportList', week: 'apiWeekly', notice: 'apiNoticeList', llog: 'apiLessonLog', mat: 'apiMatList', qa: 'apiQList', stu: 'apiStuStat' };
-    var KEY = { lesson: 'L', req: 'Q', roster: 'RO', rule: 'RU', report: 'RP', week: 'WK', notice: 'NT', llog: 'LG', mat: 'MT', qa: 'QA', stu: 'ST' };
+    var FETCH = { lesson: 'apiLessonGet', req: 'apiReqList', roster: 'apiRosterGet', rule: 'apiRuleGet', report: 'apiReportList', week: 'apiWeekly', notice: 'apiNoticeList', llog: 'apiLessonLog', mat: 'apiMatList', qa: 'apiQList', stu: 'apiStuStat', push: 'apiPushInfo' };
+    var KEY = { lesson: 'L', req: 'Q', roster: 'RO', rule: 'RU', report: 'RP', week: 'WK', notice: 'NT', llog: 'LG', mat: 'MT', qa: 'QA', stu: 'ST', push: 'PU' };
     function reload() {
       var v = V.view; if (!FETCH[v]) return;
       if (pending) return;
@@ -2155,14 +2174,117 @@ tr.quit td { color: var(--muted); }
         if (!V[KEY[v]]) $('view-' + v).innerHTML = '<div class="loading">불러오지 못했습니다. 위의 ↻를 눌러 다시 시도해 주세요.</div>';
       });
     }
-    function draw(v) { ({ lesson: drawLesson, req: drawReq, roster: drawRoster, rule: drawRule, report: drawReport, week: drawWeek, notice: drawNotice, llog: drawLlog, mat: drawMat, qa: drawQa, stu: drawStu })[v](); }
+    function draw(v) { ({ lesson: drawLesson, req: drawReq, roster: drawRoster, rule: drawRule, report: drawReport, week: drawWeek, notice: drawNotice, llog: drawLlog, mat: drawMat, qa: drawQa, stu: drawStu, push: drawPush })[v](); }
+
+    // =========================== 앱 알림 (학습실 앱 푸시) ===========================
+    V.pf = { type: 'all', vals: {}, stu: true, par: true, title: '', body: '', q: '' };
+    function drawPush() {
+      var P = V.PU, f = V.pf, h = '';
+      var opts = f.type === 'class' ? P.classes : f.type === 'school' ? P.schools : [];
+      Object.keys(f.vals).forEach(function (v) { if (f.type === 'student' ? !P.students.some(function (s) { return s.disp === v; }) : opts.indexOf(v) === -1) delete f.vals[v]; });
+      h += '<div class="vhead"><span class="sub">학습실 앱에서 알림을 켠 학생·학부모 기기로 가요 · 꼭 전해야 하는 내용은 문자로도 보내 주세요 · 기록은 시트 🔔알림기록 탭</span></div>';
+      if (!P.pushReady) h += '<div class="banner">학습실 서버에 OneSignal 키가 아직 없어요. 보내도 기록만 남아요.</div>';
+      h += '<section class="panel pform"><div class="row"><div class="lab"><span>받는 대상</span></div><div class="filters">' +
+        [['all', '전체'], ['school', '학교'], ['class', '반'], ['student', '학생 한 명']].map(function (x) {
+          return '<button class="f" type="button" data-pt="' + x[0] + '" aria-pressed="' + (f.type === x[0]) + '">' + x[1] + '</button>'; }).join('') + '</div></div>';
+      if (f.type === 'school' || f.type === 'class') h += '<div class="row"><div class="lab"><span>' + (f.type === 'class' ? '반 (여러 개 가능)' : '학교') + '</span></div><div class="filters">' +
+        opts.map(function (v) { return '<button class="f fc" type="button" data-pv="' + esc(v) + '" aria-pressed="' + !!f.vals[v] + '">' + esc(v) + '</button>'; }).join('') + '</div></div>';
+      if (f.type === 'student') {
+        var sel = Object.keys(f.vals)[0] || '';
+        h += '<div class="row"><div class="lab"><span>학생 찾기</span>' + (sel ? '<span>고른 학생: <b>' + esc(sel) + '</b></span>' : '') + '</div><input class="txt" id="pq" data-fk="pq" placeholder="이름 일부를 적어 주세요" value="' + esc(f.q) + '">' +
+          '<div id="phits">' + pushHits() + '</div></div>';
+      }
+      h += '<div class="row"><div class="lab"><span>받는 사람</span></div><div class="filters"><button class="f" type="button" data-pr="stu" aria-pressed="' + f.stu + '">학생</button><button class="f" type="button" data-pr="par" aria-pressed="' + f.par + '">학부모</button></div></div>' +
+        '<label class="row"><span class="lab"><span>제목</span><span>' + f.title.length + '/60</span></span><input class="txt" id="ptitle" data-fk="ptitle" maxlength="60" value="' + esc(f.title) + '" placeholder="예: 내일 클리닉 시간 변경"></label>' +
+        '<label class="row"><span class="lab"><span>내용</span><span>' + f.body.length + '/300</span></span><textarea class="txt" id="pbody" data-fk="pbody" maxlength="300" style="min-height:90px" placeholder="알림에 보일 내용 (짧을수록 잘 보여요)">' + esc(f.body) + '</textarea></label>' +
+        '<div class="act"><button class="btn primary" type="button" id="psend">🔔 알림 보내기</button></div></section>';
+      h += '<div class="sect">최근 보낸 알림</div>';
+      h += P.log.length ? '<div class="panel tablewrap"><table class="t"><thead><tr><th>시각</th><th>대상</th><th>제목</th><th>내용</th><th>결과</th></tr></thead><tbody>' +
+        P.log.map(function (l) { return '<tr><td class="num">' + esc(l.at) + '</td><td>' + esc(l.target) + '</td><td><b>' + esc(l.title) + '</b></td><td class="memo">' + esc(l.body) + '</td><td>' + esc(l.result) + '</td></tr>'; }).join('') + '</tbody></table></div>'
+        : '<div class="empty">아직 보낸 알림이 없어요.</div>';
+      paint($('view-push'), h);
+    }
+    function pushHits() {   // 학생 찾기 결과 (입력 중에도 이 부분만 바꿈)
+      var P = V.PU, f = V.pf, q = f.q.trim(), sel = Object.keys(f.vals)[0] || '';
+      var hits = q ? P.students.filter(function (s) { return s.disp.indexOf(q) !== -1; }).slice(0, 12) : [];
+      return hits.length ? '<div class="filters">' + hits.map(function (s) { return '<button class="f fc" type="button" data-ps="' + esc(s.disp) + '" aria-pressed="' + (sel === s.disp) + '">' + esc(s.disp) + (s.cls ? ' <b>' + esc(s.cls) + '</b>' : '') + '</button>'; }).join('') + '</div>' : (q ? '<p class="note">찾는 학생이 없어요.</p>' : '');
+    }
+    function pushSet(res) { var d = res && res.data ? res.data : res; if (d && d.log) { V.PU = d; drawPush(); } if (res && res.msg) toast(res.msg, res.ok === false); }
+    $('view-push').addEventListener('input', function (ev) {
+      var t = ev.target, f = V.pf;
+      if (t.id === 'ptitle') { f.title = t.value; var c1 = t.closest('.row').querySelector('.lab span:last-child'); if (c1) c1.textContent = t.value.length + '/60'; }
+      if (t.id === 'pbody') { f.body = t.value; var c2 = t.closest('.row').querySelector('.lab span:last-child'); if (c2) c2.textContent = t.value.length + '/300'; }
+      if (t.id === 'pq') { f.q = t.value; var ph = $('phits'); if (ph) ph.innerHTML = pushHits(); }
+    });
+    $('view-push').addEventListener('click', function (ev) {
+      var f = V.pf, b;
+      if ((b = ev.target.closest('[data-pt]'))) { f.type = b.dataset.pt; f.vals = {}; drawPush(); return; }
+      if ((b = ev.target.closest('[data-pv]'))) { var v = b.dataset.pv; if (f.type === 'school') { f.vals = {}; f.vals[v] = 1; } else if (f.vals[v]) delete f.vals[v]; else f.vals[v] = 1; drawPush(); return; }
+      if ((b = ev.target.closest('[data-ps]'))) { f.vals = {}; f.vals[b.dataset.ps] = 1; drawPush(); return; }
+      if ((b = ev.target.closest('[data-pr]'))) { f[b.dataset.pr] = !f[b.dataset.pr]; drawPush(); return; }
+      if (!(b = ev.target.closest('#psend')) || b.disabled) return;
+      var vals = Object.keys(f.vals), roles = (f.stu ? ['student'] : []).concat(f.par ? ['parent'] : []);
+      if (f.type !== 'all' && !vals.length) return toast('받는 대상을 골라 주세요.', true);
+      if (!roles.length) return toast('학생·학부모 중 받는 사람을 골라 주세요.', true);
+      if (!f.title.trim() || !f.body.trim()) return toast('제목과 내용을 적어 주세요.', true);
+      var who = (f.type === 'all' ? '전체' : vals.join(', ')) + ' · ' + (f.stu && f.par ? '학생+학부모' : f.stu ? '학생' : '학부모');
+      if (b.dataset.sure !== '1') { b.dataset.sure = '1'; b.textContent = '한 번 더 누르면 보내요 (' + who + ')'; setTimeout(function () { if (b.isConnected) { b.dataset.sure = ''; b.textContent = '🔔 알림 보내기'; } }, 4000); return; }
+      b.disabled = true;
+      run('apiPushSend', [{ type: f.type, values: vals, roles: roles, title: f.title.trim(), body: f.body.trim() }], function (res) {
+        if (res && res.ok) { f.title = ''; f.body = ''; }
+        pushSet(res);
+      });
+    });
 
     // =========================== 학생 현황 (학습실 서버) ===========================
-    V.stab = 'retest'; V.scls = {};
+    V.stab = 'retest'; V.scls = {}; V.VS = null; V.vsBusy = false;
+    function daysSince(stamp) { var m = /(\d{4})-(\d{2})-(\d{2})/.exec(stamp || ''); if (!m) return null; var d = new Date(+m[1], +m[2] - 1, +m[3]), t = new Date(); t.setHours(0, 0, 0, 0); return Math.round((t - d) / 86400000); }
+    function stuCls(r) { return String(r.cls || '').split(/,\s*/).filter(Boolean); }
+    function stuChips(rows) {
+      var cl = []; rows.forEach(function (r) { stuCls(r).forEach(function (c) { if (cl.indexOf(c) === -1) cl.push(c); }); }); cl.sort(function (a, b) { return a.localeCompare(b, 'ko'); });
+      Object.keys(V.scls).forEach(function (c) { if (cl.indexOf(c) === -1) delete V.scls[c]; });
+      var on = Object.keys(V.scls).length;
+      var list = rows.filter(function (r) { return !on || stuCls(r).some(function (c) { return V.scls[c]; }); });
+      var html = cl.length > 1 ? '<div class="filters" style="margin-bottom:12px"><button class="f" type="button" data-sc="" aria-pressed="' + !on + '">전체 <b>' + rows.length + '</b></button><span class="fsep" aria-hidden="true"></span>' +
+        cl.map(function (c) { return '<button class="f fc" type="button" data-sc="' + esc(c) + '" aria-pressed="' + !!V.scls[c] + '">' + esc(c) + ' <b>' + rows.filter(function (r) { return stuCls(r).indexOf(c) !== -1; }).length + '</b></button>'; }).join('') + '</div>' : '';
+      return { list: list, html: html };
+    }
+    function loadVideo(force) {
+      if (V.vsBusy) return;
+      V.vsBusy = true; drawStu();
+      call('apiVideoStat', force === true).then(function (d) { V.VS = d; V.vsBusy = false; drawStu(); })
+        .catch(function (err) { V.vsBusy = false; toast(errMsg(err).replace(/^Error:\s*/, '') + ' — 1~2분 뒤 다시 눌러 주세요.', true); drawStu(); });
+    }
     function drawStu() {
       var S = V.ST, h = '';
-      var tabsH = '<span class="lay" role="group" aria-label="학생 현황">' + [['retest', '재시험 대상 ' + S.retest.length]].map(function (x) {
+      var tabsH = '<span class="lay" role="group" aria-label="학생 현황">' + [['retest', '재시험 대상 ' + S.retest.length], ['access', '접속 현황'], ['video', '영상 시청']].map(function (x) {
         return '<button type="button" data-st="' + x[0] + '" aria-pressed="' + (V.stab === x[0]) + '">' + esc(x[1]) + '</button>'; }).join('') + '</span>';
+      if (V.stab === 'access') {
+        var A = stuChips(S.students || []);
+        var stale = A.list.filter(function (r) { var d = daysSince(r.lastStu); return d == null || d > 14; }).length;
+        h += '<div class="vhead">' + tabsH + '<span class="sub">학습실 앱 마지막 로그인 · 2주 넘게 안 들어온 학생 ' + stale + '명 (빨강)</span></div>' + A.html;
+        var cell = function (s) { var d = daysSince(s); return s ? '<span' + (d > 14 ? ' style="color:var(--bad);font-weight:700"' : '') + '>' + esc(s.slice(5)) + (d != null ? ' <span class="st-mute">(' + (d ? d + '일 전' : '오늘') + ')</span>' : '') + '</span>' : '<span style="color:var(--bad)">없음</span>'; };
+        var sorted = A.list.slice().sort(function (x, y) { return String(x.lastStu || '').localeCompare(String(y.lastStu || '')) || x.disp.localeCompare(y.disp, 'ko'); });
+        h += sorted.length ? '<div class="panel tablewrap"><table class="t"><thead><tr><th>표시명</th><th>학교</th><th>반</th><th>학생 마지막 접속</th><th>학부모 마지막 접속</th></tr></thead><tbody>' +
+          sorted.map(function (r) { return '<tr><td><b>' + esc(r.disp) + '</b></td><td>' + esc(r.school || '') + '</td><td>' + esc(r.cls || '') + '</td><td class="num">' + cell(r.lastStu) + '</td><td class="num">' + cell(r.lastPar) + '</td></tr>'; }).join('') + '</tbody></table></div>'
+          : '<div class="empty">학생이 없어요.</div>';
+        paint($('view-stu'), h); return;
+      }
+      if (V.stab === 'video') {
+        h += '<div class="vhead">' + tabsH + '<span class="sub">' + (V.VS ? esc(V.VS.at) + ' 기준 · ' : '') + '옛 영상 강의실에서 학생마다 확인 (처음엔 1분쯤 걸리고 30분 동안 보관)</span>' +
+          '<button class="btn" type="button" data-vre' + (V.vsBusy ? ' disabled' : '') + '>' + (V.vsBusy ? '불러오는 중…' : '↻ 새로 불러오기') + '</button></div>';
+        if (!V.VS) { h += '<div class="loading">' + (V.vsBusy ? '영상 시청 기록을 모으는 중이에요… 1분쯤 걸릴 수 있어요.' : '불러오지 못했어요. 위의 [새로 불러오기]를 눌러 주세요.') + '</div>'; paint($('view-stu'), h); return; }
+        var Vd = stuChips(V.VS.rows || []);
+        h += Vd.html;
+        var vs = Vd.list.slice().sort(function (x, y) { return (y.todo || 0) - (x.todo || 0) || x.disp.localeCompare(y.disp, 'ko'); });
+        h += '<div class="panel tablewrap"><table class="t"><thead><tr><th>표시명</th><th>반</th><th>본 영상</th><th>안 본 영상</th><th>안 본 영상 (최근 5개)</th></tr></thead><tbody>' +
+          vs.map(function (r) {
+            if (r.err) return '<tr><td><b>' + esc(r.disp) + '</b></td><td>' + esc(r.cls || '') + '</td><td colspan="3" class="memo">확인 못 함: ' + esc(r.err) + '</td></tr>';
+            return '<tr' + (r.todo ? ' class="hl"' : '') + '><td><b>' + esc(r.disp) + '</b></td><td>' + esc(r.cls || '') + '</td><td class="num">' + r.done + '/' + r.total + '</td>' +
+              '<td class="num">' + (r.todo ? '<b style="color:var(--bad)">' + r.todo + '</b>' : '0') + '</td><td class="memo">' + esc((r.todoList || []).join(' · ')) + '</td></tr>';
+          }).join('') + '</tbody></table></div>';
+        paint($('view-stu'), h); return;
+      }
       var rows = S.retest;
       var cl = []; rows.forEach(function (r) { if (r.cls && cl.indexOf(r.cls) === -1) cl.push(r.cls); }); cl.sort(function (a, b) { return a.localeCompare(b, 'ko'); });
       Object.keys(V.scls).forEach(function (c) { if (cl.indexOf(c) === -1) delete V.scls[c]; });
@@ -2181,7 +2303,8 @@ tr.quit td { color: var(--muted); }
       paint($('view-stu'), h);
     }
     $('view-stu').addEventListener('click', function (ev) {
-      var t = ev.target.closest('[data-st]'); if (t) { V.stab = t.dataset.st; drawStu(); return; }
+      var t = ev.target.closest('[data-st]'); if (t) { V.stab = t.dataset.st; drawStu(); if (V.stab === 'video' && !V.VS) loadVideo(false); return; }
+      if (ev.target.closest('[data-vre]')) { loadVideo(true); return; }
       var c = ev.target.closest('[data-sc]'); if (!c) return;
       var k = c.dataset.sc; if (!k) V.scls = {}; else if (V.scls[k]) delete V.scls[k]; else V.scls[k] = 1;
       drawStu();
