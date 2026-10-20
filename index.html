@@ -2261,7 +2261,7 @@ tr.quit td { color: var(--muted); }
         rsorted(list).map(function (r) {
           return '<tr class="click' + (r.status === '퇴원' ? ' quit' : '') + '" data-row="' + r.row + '"><td><b>' + esc(r.disp) + '</b></td><td>' + esc(r.cls) + '</td><td>' + esc(r.school) + '</td><td>' + esc(r.lessonDay) + '</td>' +
             '<td class="num">' + esc(r.clinicDay) + ' ' + esc(r.clinicTime) + '</td><td class="num">' + esc(r.sunTime) + '</td><td class="num">' + esc(phone(r.phone)) + '</td><td class="num">' + esc(phone(r.parent)) + '</td>' +
-            '<td><span class="pill ' + (r.status === '재원' ? 's-in' : r.status === '휴원' ? 's-late' : 's-out') + '">' + esc(r.status) + '</span>' + (r.stop ? ' <span class="chip kind">알림중지</span>' : '') + '</td><td class="memo">' + esc(r.memo) + '</td></tr>';
+            '<td><span class="pill ' + (r.status === '재원' ? 's-in' : r.status === '휴원' ? 's-late' : 's-out') + '">' + esc(r.status) + '</span>' + (r.stop ? ' <span class="chip kind">알림중지</span>' : '') + (r.remindOff && r.remindOff >= todayYMD() ? ' <span class="chip kind">예정문자 중지 ~' + esc(r.remindOff.slice(5).replace('-', '/')) + '</span>' : '') + '</td><td class="memo">' + esc(r.memo) + '</td></tr>';
         }).join('') + '</tbody></table></div>';
       if (!list.length) h += '<div class="empty">해당하는 학생이 없습니다.</div>';
       paint($('view-roster'), h);
@@ -2269,6 +2269,7 @@ tr.quit td { color: var(--muted); }
     // ---- 학생명단: 제목을 누르면 정렬 (오름 → 내림 → 기본 순서) ----
     var RCOLS = [['disp', '표시명'], ['cls', '반'], ['school', '학교'], ['lessonDay', '수업'], ['clinic', '클리닉'], ['sunTime', '일요'], ['phone', '학생번호'], ['parent', '학부모번호'], ['status', '상태'], ['memo', '메모']];
     var DAY_ORDER = '월화수목금토일';
+    function todayYMD() { var t = new Date(); return t.getFullYear() + '-' + ('0' + (t.getMonth() + 1)).slice(-2) + '-' + ('0' + t.getDate()).slice(-2); }
     V.rsort = null;
     try { var rs0 = JSON.parse(localStorage.getItem('pif_rsort') || 'null'); if (rs0 && rs0.k && (rs0.d === 1 || rs0.d === -1)) V.rsort = rs0; } catch (e) {}
     function dayKey(d) { d = String(d || ''); var i = DAY_ORDER.indexOf(d.charAt(0)); return i < 0 ? 9 : i; }
@@ -2311,6 +2312,7 @@ tr.quit td { color: var(--muted); }
         inp('phone', '학생번호', '01012345678', 'tel') + inp('parent', '학부모번호', '01012345678', 'tel') +
         sel('status', ch.status, '상태') +
         '<label class="chk" style="align-self:end;min-height:42px"><input type="checkbox" data-rf="stop"' + (e.stop ? ' checked' : '') + '> 알림 문자 중지</label>' +
+        '<label class="row"><span class="lab"><span>예정문자 중지</span><span>이 날짜까지 1시간 전 알림만 끔</span></span><input class="txt" type="date" data-rf="remindOff" value="' + esc(e.remindOff || '') + '"></label>' +
         '<label class="row wide"><span class="lab"><span>메모</span></span><input class="txt" data-rf="memo" data-fk="rf|memo" value="' + esc(e.memo) + '" maxlength="300"></label>' +
         '</div><p class="note">클리닉 요일·시간을 바꾸면 내일 오늘 탭부터 반영됩니다.</p>' +
         '<div class="act"><button class="btn ghost" type="button" id="rcancel">닫기</button><button class="btn primary" type="submit">' + (isNew ? '추가' : '저장') + '</button></div></form>';
@@ -2333,7 +2335,7 @@ tr.quit td { color: var(--muted); }
     });
     $('view-roster').addEventListener('click', function (ev) {
       var so = ev.target.closest('[data-rsort]'); if (so) { rsortClick(so.dataset.rsort); return; }
-      if (ev.target.closest('#radd')) { V.edit = { row: 0, disp: '', name: '', school: '', cls: '', lessonDay: '', clinicDay: '', clinicTime: '', sunTime: '', phone: '', parent: '', status: '재원', stop: false, memo: '' }; drawRoster(); window.scrollTo(0, 0); return; }
+      if (ev.target.closest('#radd')) { V.edit = { row: 0, disp: '', name: '', school: '', cls: '', lessonDay: '', clinicDay: '', clinicTime: '', sunTime: '', phone: '', parent: '', status: '재원', stop: false, remindOff: '', memo: '' }; drawRoster(); window.scrollTo(0, 0); return; }
       if (ev.target.closest('#rcancel')) { V.edit = null; drawRoster(); return; }
       var tr = ev.target.closest('tr.click');
       if (tr) { var r = V.RO.rows.filter(function (x) { return x.row === +tr.dataset.row; })[0]; V.edit = Object.assign({}, r); drawRoster(); window.scrollTo(0, 0); }
