@@ -541,6 +541,20 @@ table.t tr.hl td { background: var(--warn-soft); }
 table.t td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
 table.t td.memo { white-space: normal; min-width: 160px; color: var(--muted); }
 table.t.lgt td { vertical-align: top; }
+#view-qa { max-width: 920px; margin-inline: auto; }
+.qcard { padding: 14px; margin-bottom: 10px; display: grid; gap: 8px; }
+.qcard.wait { border-color: var(--warn); }
+.qcard .qh { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.qcard .qh b { font-size: 16px; }
+.qcard .qh .pill { margin-left: auto; }
+.qcard .qt { font-size: 13px; color: var(--muted); font-weight: 600; }
+.qcard .qx { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 15px; }
+.qcard .qa { background: var(--bg); border-radius: 10px; padding: 8px 11px; display: grid; gap: 3px; }
+.qcard .qphs { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.qcard .qph img { display: block; max-width: 220px; max-height: 220px; border-radius: 10px; border: 1px solid var(--line); object-fit: cover; }
+.qcard .qph.ld { font-size: 13px; color: var(--muted); }
+.qcard .qform { display: grid; gap: 8px; }
+.qcard .qform textarea { min-height: 90px; }
 .mup { padding: 14px; margin-bottom: 12px; display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; justify-content: space-between; }
 .mup .mpick { flex: 0 0 auto; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
 .mup .mpick.dis { opacity: .7; cursor: default; }
@@ -612,6 +626,7 @@ tr.quit td { color: var(--muted); }
       <button class="tab" type="button" data-v="notice">학생 공지</button>
       <button class="tab" type="button" data-v="mat">자료</button>
       <button class="tab" type="button" data-v="req">변경신청 <span class="cnt" id="reqCnt" hidden></span></button>
+      <button class="tab" type="button" data-v="qa">질문 <span class="cnt" id="qaCnt" hidden></span></button>
       <button class="tab" type="button" data-v="roster">학생명단</button>
       <button class="tab" type="button" data-v="week">주간 현황</button>
       <button class="tab" type="button" data-v="rule">규정·설정</button>
@@ -640,6 +655,7 @@ tr.quit td { color: var(--muted); }
     <div id="view-week" hidden></div>
     <div id="view-notice" hidden></div>
     <div id="view-mat" hidden></div>
+    <div id="view-qa" hidden></div>
   </div>
 </main>
 <div class="toast" id="toast" hidden></div>
@@ -734,14 +750,14 @@ tr.quit td { color: var(--muted); }
 
   // ---------- 입장(공용 비밀번호) ----------
   var AUTH_FNS = { apiGetToday: 1, apiUpdate: 1, apiNudge: 1, apiAckBoss: 1, apiSetNotice: 1, apiAckNotice: 1,
-    apiMsgPreview: 1, apiHistory: 1, apiReportList: 1, apiReportExclude: 1, apiReportReason: 1, apiReportSendNow: 1, apiWeekly: 1, apiLessonGet: 1, apiLessonClass: 1, apiLessonStudent: 1, apiLessonAbsent: 1, apiLessonSendNow: 1, apiLessonBulk: 1, apiLessonClear: 1, apiLessonExclAll: 1, apiLessonSendOne: 1, apiLessonSendMany: 1, apiNoticeList: 1, apiNoticeSave: 1, apiLessonHist: 1, apiLessonLog: 1, apiLessonDay: 1, apiMatList: 1, apiMatUpload: 1, apiMatHide: 1,
+    apiMsgPreview: 1, apiHistory: 1, apiReportList: 1, apiReportExclude: 1, apiReportReason: 1, apiReportSendNow: 1, apiWeekly: 1, apiLessonGet: 1, apiLessonClass: 1, apiLessonStudent: 1, apiLessonAbsent: 1, apiLessonSendNow: 1, apiLessonBulk: 1, apiLessonClear: 1, apiLessonExclAll: 1, apiLessonSendOne: 1, apiLessonSendMany: 1, apiNoticeList: 1, apiNoticeSave: 1, apiLessonHist: 1, apiLessonLog: 1, apiLessonDay: 1, apiMatList: 1, apiMatUpload: 1, apiMatHide: 1, apiQList: 1, apiQAnswer: 1, apiQPhoto: 1,
     apiReqList: 1, apiReqConnect: 1, apiReqDecide: 1, apiChangeAdd: 1, apiChangeDelete: 1, apiRosterGet: 1, apiRosterSave: 1, apiWelcomePreview: 1, apiWelcomeSend: 1, apiRuleGet: 1, apiSettingsSave: 1 };
   var auth = { token: '', staff: '', admin: false };
   try { auth.token = localStorage.getItem('pif_token') || ''; auth.staff = localStorage.getItem('pif_staff') || ''; } catch (e) {}
 
   // 다시 시도해도 되는 '읽기만 하는' 요청 (저장·발송·공지 저장은 넣지 않음: 두 번 실행될 수 있음)
   var READ_FNS = { apiLoginInfo: 1, apiGetToday: 1, apiHistory: 1, apiLessonHist: 1, apiMsgPreview: 1, apiLessonGet: 1, apiLessonLog: 1, apiLessonDay: 1,
-    apiReqList: 1, apiRosterGet: 1, apiRuleGet: 1, apiReportList: 1, apiWeekly: 1, apiNoticeList: 1, apiMatList: 1 };
+    apiReqList: 1, apiRosterGet: 1, apiRuleGet: 1, apiReportList: 1, apiWeekly: 1, apiNoticeList: 1, apiMatList: 1, apiQList: 1, apiQPhoto: 1 };
   function call(fn) {
     var args = Array.prototype.slice.call(arguments, 1);
     if (AUTH_FNS[fn] && !DEMO) args.unshift(auth.token);
@@ -1744,11 +1760,11 @@ tr.quit td { color: var(--muted); }
   // =====================================================================
   (function () {
     var V = { lsel: {}, llay: 'card', lsheet: null, view: 'today', loaded: {}, L: null, Q: null, RO: null, RU: null, reqOpen: {}, edit: null,
-              rq: '', rcls: '', rst: '재원', ruleWarn: false, lopen: {} };
+              rq: '', rcls: '', rclsSel: {}, rst: '재원', ruleWarn: false, lopen: {} };
     try { var sv = localStorage.getItem('pif_view'); if (sv) V.view = sv; } catch (e) {}
     try { var ll = localStorage.getItem('pif_llayout'); if (ll === 'board' || ll === 'list') V.llay = ll; } catch (e) {}
-    var TITLES = { today: '오늘 클리닉', report: '성취도 문자', lesson: '수업피드백', llog: '수업로그', mat: '자료', notice: '학생 공지', req: '변경신청', roster: '학생명단', week: '주간 현황', rule: '규정·설정' };
-    var VIEWS = ['today', 'report', 'lesson', 'llog', 'notice', 'mat', 'req', 'roster', 'week', 'rule'];
+    var TITLES = { today: '오늘 클리닉', report: '성취도 문자', lesson: '수업피드백', llog: '수업로그', mat: '자료', qa: '학생 질문', notice: '학생 공지', req: '변경신청', roster: '학생명단', week: '주간 현황', rule: '규정·설정' };
+    var VIEWS = ['today', 'report', 'lesson', 'llog', 'notice', 'mat', 'qa', 'req', 'roster', 'week', 'rule'];
 
     // ---------- 미리보기용 예시 데이터 ----------
     if (DEMO) (function () {
@@ -1831,6 +1847,7 @@ tr.quit td { color: var(--muted); }
         rows: [
           ['(예시) 김도윤', '김도윤', '서울고', '서울2', '토', '수', '15:30', '', '01012345678', '01087654321', '재원', false, ''],
           ['(예시) 박서연', '박서연', '서울고', '서울2', '토', '수', '15:30', '', '01022223333', '01044445555', '재원', false, '워크북 자주 미완'],
+          ['(예시) 오지민', '오지민', '서울고', '서울2', '목', '금', '15:30', '', '01077778888', '', '재원', false, ''],
           ['(예시) 이하준', '이하준', '서초고', '서초1', '일', '월', '16:00', '', '01033334444', '01055556666', '재원', false, ''],
           ['(예시) 정민재', '정민재', '상문고', '상문1', '토', '화', '16:30', '', '01066667777', '01088889999', '재원', false, ''],
           ['(예시) 강예린', '강예린', '서울고', '서울1', '금', '월', '17:00', '', '01011112222', '', '휴원', true, '11월 복귀 예정']
@@ -1844,6 +1861,10 @@ tr.quit td { color: var(--muted); }
           { disp: '(예시) 박서연', cls: '서울2', school: '서울고', from: '2026-11-02', to: '2026-12-10', absent: 0, late: 2, makeup: 2, change: 2, flag: '' },
           { disp: '(예시) 김도윤', cls: '서울2', school: '서울고', from: '2026-11-02', to: '2026-12-10', absent: 0, late: 0, makeup: 0, change: 1, flag: '' }
         ] };
+      var demoQ = { questions: [
+        { id: 'Q3', at: '2026-10-21 14:05', disp: '(예시) 김서윤', cls: '서울1', topic: '올인원 워크북 p.42', text: '3번에서 왜 to부정사가 아니라 동명사인지 모르겠어요.', photos: ['p1'], status: '대기', answer: '', by: '', answeredAt: '' },
+        { id: 'Q2', at: '2026-10-20 21:40', disp: '(예시) 박도윤', cls: '서초1', topic: '', text: '모의고사 빈칸 7번 해설 부탁드려요', photos: [], status: '대기', answer: '', by: '', answeredAt: '' },
+        { id: 'Q1', at: '2026-10-18 19:12', disp: '(예시) 최지우', cls: '상문1', topic: '단어', text: 'resign과 retire 차이가 뭐예요?', photos: [], status: '답변완료', answer: 'resign은 스스로 그만두는 것, retire는 나이 들어 은퇴하는 것이에요.', by: '원장', answeredAt: '2026-10-18 22:01' }] };
       var demoMat = { maxMb: 20, folders: [
         { label: '전체', id: 'fall', files: [{ id: 'm1', name: '학원 시간표.png', hidden: false, sub: '', size: 204800, updated: '2026-10-01' }] },
         { label: '서울고', id: 'fsch', files: [{ id: 'm2', name: '서울고 2학기 중간 기출.pdf', hidden: false, sub: '기출', size: 2621440, updated: '2026-10-15' }] },
@@ -1984,6 +2005,13 @@ tr.quit td { color: var(--muted); }
               { name: '(예시) 박도윤', att: '지각', hw: '완료', score: '95', pass: '통과', retest: '', atti: '보완', cmt: '지각 15분', excl: false, status: '발송완료 22:30' }] }];
           return { date: ymd, today: d(0), classes: cl, dates: dates };
         },
+        apiQList: function () { var q = demoQ.questions; return { questions: JSON.parse(JSON.stringify(q)), waiting: q.filter(function (x) { return x.status === '대기'; }).length }; },
+        apiQAnswer: function (id, mode, answer) {
+          var q = demoQ.questions.filter(function (x) { return x.id === id; })[0];
+          q.status = mode; q.answer = answer || ''; q.by = '원장'; q.answeredAt = new Date().toISOString().slice(0, 16).replace('T', ' ');
+          return { data: demo.apiQList(), msg: mode === '답변완료' ? '답변을 보냈어요. 학생 앱에 바로 보이고 알림도 가요.' : "'클리닉 때 설명'으로 표시했어요. 학생에게 알림이 가요." };
+        },
+        apiQPhoto: function () { return { mime: 'image/svg+xml', b64: btoa('<svg xmlns="http://www.w3.org/2000/svg" width="220" height="160"><rect width="220" height="160" fill="#E1F0F0"/><text x="110" y="85" font-size="16" text-anchor="middle" fill="#0E6B70">PHOTO</text></svg>') }; },
         apiMatList: function () { return JSON.parse(JSON.stringify(demoMat)); },
         apiMatUpload: function (d) {
           var f = demoMat.folders.filter(function (x) { return x.id === d.folder; })[0];
@@ -2105,8 +2133,8 @@ tr.quit td { color: var(--muted); }
     }
     $('tabs').addEventListener('click', function (ev) { var b = ev.target.closest('.tab'); if (b) { show(b.dataset.v); window.scrollTo(0, 0); } });
 
-    var FETCH = { lesson: 'apiLessonGet', req: 'apiReqList', roster: 'apiRosterGet', rule: 'apiRuleGet', report: 'apiReportList', week: 'apiWeekly', notice: 'apiNoticeList', llog: 'apiLessonLog', mat: 'apiMatList' };
-    var KEY = { lesson: 'L', req: 'Q', roster: 'RO', rule: 'RU', report: 'RP', week: 'WK', notice: 'NT', llog: 'LG', mat: 'MT' };
+    var FETCH = { lesson: 'apiLessonGet', req: 'apiReqList', roster: 'apiRosterGet', rule: 'apiRuleGet', report: 'apiReportList', week: 'apiWeekly', notice: 'apiNoticeList', llog: 'apiLessonLog', mat: 'apiMatList', qa: 'apiQList' };
+    var KEY = { lesson: 'L', req: 'Q', roster: 'RO', rule: 'RU', report: 'RP', week: 'WK', notice: 'NT', llog: 'LG', mat: 'MT', qa: 'QA' };
     function reload() {
       var v = V.view; if (!FETCH[v]) return;
       if (pending) return;
@@ -2119,7 +2147,67 @@ tr.quit td { color: var(--muted); }
         if (!V[KEY[v]]) $('view-' + v).innerHTML = '<div class="loading">불러오지 못했습니다. 위의 ↻를 눌러 다시 시도해 주세요.</div>';
       });
     }
-    function draw(v) { ({ lesson: drawLesson, req: drawReq, roster: drawRoster, rule: drawRule, report: drawReport, week: drawWeek, notice: drawNotice, llog: drawLlog, mat: drawMat })[v](); }
+    function draw(v) { ({ lesson: drawLesson, req: drawReq, roster: drawRoster, rule: drawRule, report: drawReport, week: drawWeek, notice: drawNotice, llog: drawLlog, mat: drawMat, qa: drawQa })[v](); }
+
+    // =========================== 학생 질문 (학습실 앱 ❓질문) ===========================
+    V.qaf = 'wait'; V.qopen = {}; V.qimg = {};
+    function qaCount() { var n = V.QA ? V.QA.waiting : 0; var el = $('qaCnt'); el.hidden = !n; el.textContent = n; }
+    function qAt(s) { var m = /(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/.exec(s || ''); return m ? mdw(m[1] + '-' + m[2] + '-' + m[3]) + ' ' + m[4] + ':' + m[5] : esc(s || ''); }
+    function drawQa() {
+      var A = V.QA, h = '', qs = A.questions || [];
+      qaCount();
+      var list = qs.filter(function (q) { return V.qaf === 'all' || q.status === '대기'; });
+      h += '<div class="vhead"><span class="lay" role="group" aria-label="질문 보기">' + [['wait', '답변 대기 ' + A.waiting], ['all', '전체 ' + qs.length]].map(function (x) {
+          return '<button type="button" data-qf="' + x[0] + '" aria-pressed="' + (V.qaf === x[0]) + '">' + esc(x[1]) + '</button>'; }).join('') + '</span>' +
+        '<span class="sub">학생이 학습실 앱에서 올린 질문 · 답변하면 학생 앱에 바로 보이고 알림이 가요</span></div>';
+      if (!list.length) { h += '<div class="empty">' + (V.qaf === 'wait' ? '답변을 기다리는 질문이 없어요.' : '아직 질문이 없어요.') + '</div>'; paint($('view-qa'), h); return; }
+      h += list.map(function (q) {
+        var wait = q.status === '대기', open = wait || V.qopen[q.id];
+        var ph = (q.photos || []).map(function (id) {
+          var im = V.qimg[id];
+          return im === 'load' ? '<span class="qph ld">불러오는 중…</span>' : im ? '<a class="qph" href="' + im + '" target="_blank" rel="noopener"><img src="' + im + '" alt="질문 사진"></a>' : '';
+        }).join('');
+        var needPh = (q.photos || []).some(function (id) { return !V.qimg[id]; });
+        return '<section class="panel qcard' + (wait ? ' wait' : '') + '" data-qid="' + esc(q.id) + '">' +
+          '<div class="qh"><b>' + esc(q.disp) + '</b>' + (q.cls ? '<span class="chip">' + esc(q.cls) + '</span>' : '') + '<span class="sub">' + qAt(q.at) + '</span>' +
+          '<span class="pill ' + (wait ? 's-late' : q.status === '클리닉 때 설명' ? 's-start' : 's-in') + '">' + esc(q.status) + '</span></div>' +
+          (q.topic ? '<div class="qt">' + esc(q.topic) + '</div>' : '') +
+          (q.text ? '<div class="qx">' + esc(q.text) + '</div>' : '') +
+          ((q.photos || []).length ? '<div class="qphs">' + ph + (needPh ? '<button class="btn ghost" type="button" data-qph="' + esc(q.id) + '">📷 사진 ' + q.photos.length + '장 보기</button>' : '') + '</div>' : '') +
+          (!wait && (q.answer || q.by) ? '<div class="qa"><div class="lab"><span>' + esc(q.status === '클리닉 때 설명' ? '클리닉 때 설명' : '답변') + (q.by ? ' · ' + esc(q.by) : '') + (q.answeredAt ? ' · ' + qAt(q.answeredAt) : '') + '</span></div>' + (q.answer ? '<div class="qx">' + esc(q.answer) + '</div>' : '') + '</div>' : '') +
+          (open ? '<div class="qform"><textarea class="txt" data-qans maxlength="2000" placeholder="학생에게 보낼 답변">' + (wait ? '' : esc(q.answer)) + '</textarea>' +
+            '<div class="act"><button class="btn primary" type="button" data-qsend="답변완료">💬 답변 보내기</button><button class="btn" type="button" data-qsend="클리닉 때 설명">클리닉 때 설명할게요</button>' +
+            (!wait ? '<button class="btn ghost" type="button" data-qclose>닫기</button>' : '') + '</div></div>'
+               : '<div class="act"><button class="btn ghost" type="button" data-qre>답변 고치기</button></div>') +
+          '</section>';
+      }).join('');
+      paint($('view-qa'), h);
+    }
+    function qaSet(res) { var d = res && res.data ? res.data : res; if (d && d.questions) { V.QA = d; drawQa(); } if (res && res.msg) toast(res.msg); }
+    $('view-qa').addEventListener('click', function (ev) {
+      var f = ev.target.closest('[data-qf]'); if (f) { V.qaf = f.dataset.qf; drawQa(); return; }
+      var card = ev.target.closest('.qcard'); if (!card) return;
+      var id = card.dataset.qid, q = (V.QA.questions || []).filter(function (x) { return x.id === id; })[0]; if (!q) return;
+      if (ev.target.closest('[data-qre]')) { V.qopen[id] = true; drawQa(); return; }
+      if (ev.target.closest('[data-qclose]')) { V.qopen[id] = false; drawQa(); return; }
+      var pb = ev.target.closest('[data-qph]');
+      if (pb) {
+        (q.photos || []).forEach(function (pid) {
+          if (V.qimg[pid]) return;
+          V.qimg[pid] = 'load';
+          call('apiQPhoto', pid).then(function (p) { V.qimg[pid] = 'data:' + (p.mime || 'image/jpeg') + ';base64,' + p.b64; drawQa(); })
+            .catch(function (err) { delete V.qimg[pid]; toast(errMsg(err).replace(/^Error:\s*/, ''), true); drawQa(); });
+        });
+        drawQa(); return;
+      }
+      var sb = ev.target.closest('[data-qsend]'); if (!sb || sb.disabled) return;
+      var mode = sb.dataset.qsend, ta = card.querySelector('[data-qans]'), text = ta ? ta.value.trim() : '';
+      if (mode === '답변완료' && !text) { toast('답변 내용을 적어 주세요.', true); if (ta) ta.focus(); return; }
+      if (sb.dataset.sure !== '1') { var t0 = sb.textContent; sb.dataset.sure = '1'; sb.textContent = '한 번 더 누르면 보내요'; setTimeout(function () { if (sb.isConnected) { sb.dataset.sure = ''; sb.textContent = t0; } }, 3000); return; }
+      Array.prototype.forEach.call(card.querySelectorAll('[data-qsend]'), function (x) { x.disabled = true; });
+      V.qopen[id] = false;
+      run('apiQAnswer', [id, mode, text], qaSet);
+    });
 
     // =========================== 자료 (학생 앱 '자료' 탭) ===========================
     V.mfold = ''; V.mbusy = '';
@@ -2709,18 +2797,33 @@ tr.quit td { color: var(--muted); }
     });
 
     // =========================== 학생명단 ===========================
+    // 반 버튼 키: 같은 반인데 수업요일이 다른 학생이 있으면(서울1 월·화 등) 요일까지 나눔
+    var rSplit = {};
+    function rKey(r) { return r.cls && rSplit[r.cls] ? r.cls + '|' + (r.lessonDay || '') : (r.cls || ''); }
+    function rLabel(k) { var p = k.split('|'); return p.length > 1 ? p[0] + ' ' + (p[1] || '요일 없음') : p[0]; }
     function drawRoster() {
       var RO = V.RO, ch = RO.choices, h = '';
       var q = V.rq.trim();
       var list = RO.rows.filter(function (r) {
-        if (V.rcls && r.cls !== V.rcls) return false;
+        if (Object.keys(V.rclsSel).length && !V.rclsSel[rKey(r)]) return false;
         if (V.rst ? r.status !== V.rst : r.status === '퇴원') return false;   // 퇴원생은 상태에서 '퇴원'을 고를 때만
         return !q || (r.disp + ' ' + r.name + ' ' + r.phone + ' ' + r.parent).indexOf(q.replace(/-/g, '')) !== -1 || r.disp.indexOf(q) !== -1;
       });
       h += '<div class="toolbar"><input class="txt" type="search" id="rq" data-fk="rq" placeholder="이름·번호 찾기" value="' + esc(V.rq) + '">' +
-        '<select class="txt" id="rcls" aria-label="반">' + opts(ch.cls, V.rcls, '전체 반') + '</select>' +
+
         '<select class="txt" id="rst" aria-label="상태">' + opts(ch.status, V.rst, '재원·휴원 (퇴원 제외)') + '</select>' +
         '<button class="btn primary" type="button" id="radd" style="flex:0 0 auto">학생 추가</button></div>';
+      // 반 버튼 (여러 개 고르기) — 상태·찾기 조건에 맞는 학생 수
+      var rbase = RO.rows.filter(function (r) { return (V.rst ? r.status === V.rst : r.status !== '퇴원'); });
+      var days = {}; rSplit = {};
+      RO.rows.forEach(function (r) { if (!r.cls || r.status === '퇴원') return; (days[r.cls] = days[r.cls] || {})[r.lessonDay || ''] = 1; });
+      Object.keys(days).forEach(function (c) { if (Object.keys(days[c]).length > 1) rSplit[c] = 1; });
+      var DO = '월화수목금토일';
+      var rcl = []; rbase.forEach(function (r) { var k = rKey(r); if (r.cls && rcl.indexOf(k) === -1) rcl.push(k); });
+      rcl.sort(function (a, b) { var x = a.split('|'), y = b.split('|'); return x[0].localeCompare(y[0], 'ko') || (DO.indexOf((x[1] || '').charAt(0)) - DO.indexOf((y[1] || '').charAt(0))); });
+      Object.keys(V.rclsSel).forEach(function (c) { if (rcl.indexOf(c) === -1) delete V.rclsSel[c]; });
+      if (rcl.length > 1) h += '<div class="filters" style="margin-bottom:12px"><button class="f" type="button" data-rc="" aria-pressed="' + !Object.keys(V.rclsSel).length + '">전체 <b>' + rbase.length + '</b></button><span class="fsep" aria-hidden="true"></span>' +
+        rcl.map(function (c) { return '<button class="f fc" type="button" data-rc="' + esc(c) + '" aria-pressed="' + !!V.rclsSel[c] + '">' + esc(rLabel(c)) + ' <b>' + rbase.filter(function (r) { return rKey(r) === c; }).length + '</b></button>'; }).join('') + '</div>';
       if (V.edit) h += formHTML(V.edit, ch);
       h += '<div class="sect">' + list.length + '명</div>';
       var o = V.rsort;
@@ -2826,7 +2929,6 @@ tr.quit td { color: var(--muted); }
     }
     $('view-roster').addEventListener('input', function (ev) { if (ev.target.id === 'rq') { V.rq = ev.target.value; drawRoster(); } });
     $('view-roster').addEventListener('change', function (ev) {
-      if (ev.target.id === 'rcls') { V.rcls = ev.target.value; drawRoster(); }
       if (ev.target.id === 'rst') { V.rst = ev.target.value; drawRoster(); }
     });
     $('view-roster').addEventListener('keydown', function (ev) {
@@ -2855,6 +2957,8 @@ tr.quit td { color: var(--muted); }
         return;
       }
       var so = ev.target.closest('[data-rsort]'); if (so) { rsortClick(so.dataset.rsort); return; }
+      var rc = ev.target.closest('[data-rc]');
+      if (rc) { var c = rc.dataset.rc; if (!c) V.rclsSel = {}; else if (V.rclsSel[c]) delete V.rclsSel[c]; else V.rclsSel[c] = 1; drawRoster(); return; }   // 반 켜기·끄기 (여러 반 가능)
       if (ev.target.closest('#radd')) { V.edit = { row: 0, disp: '', name: '', school: '', cls: '', lessonDay: '', clinicDay: '', clinicTime: '', sunTime: '', phone: '', parent: '', status: '재원', stop: false, remindOff: '', memo: '' }; drawRoster(); window.scrollTo(0, 0); return; }
       if (ev.target.closest('#rcancel')) { V.edit = null; drawRoster(); return; }
       var tr = ev.target.closest('tr.click');
@@ -3149,12 +3253,13 @@ tr.quit td { color: var(--muted); }
           reqPeek = true;
           call('apiReqList').then(function (d) { V.Q = V.Q || d; reqCount(); }).catch(function () {});
           call('apiReportList').then(function (d) { V.RP = V.RP || d; repCount(); }).catch(function () {});
+          call('apiQList').then(function (d) { V.QA = V.QA || d; qaCount(); }).catch(function () {});
         }
       },
       reset: function () {
         V.loaded = {}; V.L = V.Q = V.RO = V.RU = V.RP = V.WK = V.NT = null; V.nedit = null; V.edit = null; reqPeek = false;
         VIEWS.forEach(function (k) { if (k !== 'today') $('view-' + k).innerHTML = ''; });
-        $('tabs').hidden = true; $('reqCnt').hidden = true; $('repCnt').hidden = true;
+        $('tabs').hidden = true; $('reqCnt').hidden = true; $('repCnt').hidden = true; $('qaCnt').hidden = true; V.QA = null; V.qimg = {}; V.qopen = {};
         V.view = 'today';
         VIEWS.forEach(function (k) { $('view-' + k).hidden = k !== 'today'; });
         $('todayTools').style.display = 'grid'; $('vtitle').textContent = TITLES.today;
