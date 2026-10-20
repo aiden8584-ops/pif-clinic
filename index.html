@@ -2449,7 +2449,9 @@ tr.quit td { color: var(--muted); }
         body = w.result.map(function (x) {
           return '<div class="wel-res"><span class="pill ' + (x.ok ? 's-in' : x.skipped ? 's-out' : 's-abs') + '">' + (x.ok ? '발송 완료' : x.skipped ? '건너뜀' : '실패') + '</span><b>' + esc(x.who) + '</b>' +
             '<span class="st-mute">' + esc(x.to ? phone(x.to) : '') + (x.why ? ' · ' + esc(x.why) : '') + '</span></div>';
-        }).join('') + '<p class="note">학생명단 \'안내문 발송일\'에 기록했습니다. 🗒발송기록에도 남습니다.</p>' +
+        }).join('') + (w.result.some(function (x) { return x.ok; })
+          ? '<p class="note">학생명단 \'안내문 발송일\'에 기록했습니다. 📨발송이력 탭에도 남습니다.</p>'
+          : '<p class="note bad">보내지 못해서 \'안내문 발송일\'은 기록하지 않았습니다. 이유는 📨발송이력 탭에도 남습니다.</p>') +
           '<div class="act"><button class="btn primary" type="button" data-wclose>닫기</button></div>';
       } else {
         body = (w.sentAt ? '<p class="note warn">⚠️ ' + esc(mdw(w.sentAt)) + '에 이미 보냈어요. 다시 보내면 같은 문자가 한 번 더 갑니다.</p>' : '') +
