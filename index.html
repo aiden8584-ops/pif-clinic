@@ -304,6 +304,10 @@ main .wrap { padding-block: 14px 40px; }
 .ltb { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; overflow-x: auto; }
 .ltb table { border-collapse: collapse; width: 100%; min-width: 760px; font-size: 14px; }
 .ltb th, .ltb td { padding: 9px 12px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
+.ltb td.ed { padding: 5px 8px; cursor: default; }
+.ltb .lsel { font: inherit; font-size: 13.5px; min-height: 36px; padding: 4px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); max-width: 140px; }
+.ltb .lsel.on { background: var(--surface); border-color: var(--ink); font-weight: 600; }
+.ltb input.lsel { width: 72px; }
 .ltb th { font-size: 12px; color: var(--muted); font-weight: 600; background: var(--bg); }
 .ltb th.srt { cursor: pointer; user-select: none; -webkit-tap-highlight-color: transparent; }
 .ltb th.srt:hover { color: var(--ink); }
@@ -1982,14 +1986,25 @@ tr.quit td { color: var(--muted); }
         }).join('') + '</div>';
       }).join('') + '</div>';
     }
+    function lCellSel(s, f, list, lab) {
+      var cur = s[f] || '';
+      return '<select class="lsel' + (cur ? ' on' : '') + '" data-ls="' + f + '" aria-label="' + esc(s.name + ' ' + lab) + '"><option value="">—</option>' +
+        (list || []).map(function (v) { return '<option' + (cur === v ? ' selected' : '') + '>' + esc(v) + '</option>'; }).join('') +
+        (cur && (list || []).indexOf(cur) < 0 ? '<option selected>' + esc(cur) + '</option>' : '') + '</select>';
+    }
     function lListHTML(mine) {
       if (!mine.length) return '';
       return '<div style="padding:0 14px 14px"><div class="ltb"><table><thead><tr><th style="width:44px"></th><th>이름</th><th>출석</th><th>과제</th><th>리뷰</th><th>재시험</th><th>태도</th><th>문자</th><th></th></tr></thead><tbody>' +
         mine.map(function (s) {
+          // 칸에서 바로 고르기 (이름을 누르면 예전처럼 입력 카드). 과제·리뷰·재시험·태도는 출석·지각일 때만
+          var ch = V.L.choices, can = s.att === '출석' || s.att === '지각';
           return '<tr class="lst-tk' + (!s.att ? ' hl' : '') + '"' + sAttrs(s) + '><td>' + selBox(s) + '</td><td><b>' + esc(s.name) + '</b></td>' +
-            '<td>' + (s.att ? '<span class="pill ' + (s.att === '결석' ? 's-abs' : s.att === '영상보강' ? 's-start' : s.att === '지각' ? 's-late' : 's-in') + '">' + esc(s.att) + '</span>' : '<span class="st-mute">—</span>') + '</td>' +
-            '<td>' + esc(s.hw || '—') + '</td><td class="mono">' + (s.score !== '' ? esc(s.score) + '점 ' + (s.pass ? '<span class="st-mute">' + esc(s.pass) + '</span>' : '') : '—') + '</td>' +
-            '<td>' + esc(s.retest || '—') + '</td><td>' + esc(s.atti || '—') + (s.cmt ? ' <span class="st-mute">💬</span>' : '') + '</td>' +
+            '<td class="ed">' + lCellSel(s, 'att', ch.att, '출석') + '</td>' +
+            (can ? '<td class="ed">' + lCellSel(s, 'hw', ch.hw, '과제') + '</td>' : '<td>' + esc(s.hw || '—') + '</td>') +
+            (can ? '<td class="ed mono"><input class="lsel' + (s.score !== '' ? ' on' : '') + '" type="number" min="0" max="100" inputmode="numeric" data-ls="score" data-fk="l|' + esc(sKey(s)) + '|score" value="' + esc(s.score) + '" placeholder="점수" aria-label="' + esc(s.name) + ' 리뷰 점수">' + (s.pass ? ' <span class="st-mute">' + esc(s.pass) + '</span>' : '') + '</td>'
+              : '<td class="mono">' + (s.score !== '' ? esc(s.score) + '점' : '—') + '</td>') +
+            (can ? '<td class="ed">' + lCellSel(s, 'retest', ch.retest, '재시험') + '</td>' : '<td>' + esc(s.retest || '—') + '</td>') +
+            (can ? '<td class="ed">' + lCellSel(s, 'atti', ch.atti, '태도') : '<td>' + esc(s.atti || '—')) + (s.cmt ? ' <span class="st-mute">💬</span>' : '') + '</td>' +
             '<td>' + lStatusPill(s) + (s.excl ? ' <span class="st-mute">제외</span>' : '') + '</td><td>' + lAbsentBtn(s) + '</td></tr>';
         }).join('') + '</tbody></table></div></div>';
     }
@@ -2096,6 +2111,7 @@ tr.quit td { color: var(--muted); }
       }
       if (b && b.dataset.llay) { V.llay = b.dataset.llay; V.lsheet = null; try { localStorage.setItem('pif_llayout', V.llay); } catch (e) {} drawLesson(); return; }
       if (!b) {
+        if (ev.target.closest('.lsel, td.ed')) return;   // 목록 칸의 고르기·점수 칸은 카드 열지 않음
         var tk = ev.target.closest('.lst-tk');   // 칸·목록에서 학생을 누르면 입력 카드 열기
         if (tk) { V.lsheet = tk.dataset.sk; drawLesson(); return; }
       }
@@ -2152,8 +2168,9 @@ tr.quit td { color: var(--muted); }
         c[f] = v;
         run('apiLessonClass', [c.row, c.cls, f, v], lessonSet);
       } else if (el.dataset.ls) {
-        var s = stuOf(el.closest('.lstu')), f2 = el.dataset.ls, v2 = el.value.trim();
-        if (String(s[f2] == null ? '' : s[f2]) === v2) return;
+        var s = stuOf(el.closest('.lstu, .lst-tk')), f2 = el.dataset.ls, v2 = el.value.trim();
+        if (!s || String(s[f2] == null ? '' : s[f2]) === v2) return;
+        if (f2 === 'att' && (s.hw || s.score !== '') && !/^(출석|지각)$/.test(v2) && !confirm(s.name + ' 출석을 ' + (v2 || '미입력') + '(으)로 바꿀까요?')) { el.value = s.att || ''; return; }
         s[f2] = v2;
         run('apiLessonStudent', [s.row, s.name, s.cls, f2, v2], lessonSet);
       }
