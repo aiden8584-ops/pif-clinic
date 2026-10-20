@@ -308,6 +308,15 @@ main .wrap { padding-block: 14px 40px; }
 .ltb .lsel { font: inherit; font-size: 13.5px; min-height: 36px; padding: 4px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); max-width: 140px; }
 .ltb .lsel.on { background: var(--surface); border-color: var(--ink); font-weight: 600; }
 .ltb input.lsel { width: 72px; }
+.ltb .lsel.t-g { background: var(--ok-soft); border-color: var(--ok); color: var(--ok); }
+.ltb .lsel.t-y { background: var(--warn-soft); border-color: var(--warn); color: var(--warn); }
+.ltb .lsel.t-r { background: var(--bad-soft); border-color: var(--bad); color: var(--bad); }
+.ltb .lsel.t-b { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.ltb .lsel option { background: var(--surface); color: var(--ink); font-weight: 400; }
+.ltb tr.lst-tk.a-g > td:first-child { box-shadow: inset 4px 0 var(--ok); }
+.ltb tr.lst-tk.a-y > td:first-child { box-shadow: inset 4px 0 var(--warn); }
+.ltb tr.lst-tk.a-r > td:first-child { box-shadow: inset 4px 0 var(--bad); }
+.ltb tr.lst-tk.a-b > td:first-child { box-shadow: inset 4px 0 var(--accent); }
 .ltb th { font-size: 12px; color: var(--muted); font-weight: 600; background: var(--bg); }
 .ltb th.srt { cursor: pointer; user-select: none; -webkit-tap-highlight-color: transparent; }
 .ltb th.srt:hover { color: var(--ink); }
@@ -1986,9 +1995,20 @@ tr.quit td { color: var(--muted); }
         }).join('') + '</div>';
       }).join('') + '</div>';
     }
+    // 색: 초록 = 출석·완료·통과·우수 / 노랑 = 지각·일부·미응시·보완 / 빨강 = 결석·미완료·미제출·미통과·지도필요 / 청록 = 영상보강·양호
+    function lTone(v) {
+      v = String(v || '');
+      if (!v) return '';
+      if (/영상보강|양호/.test(v)) return 'b';
+      if (/결석|미완료|미제출|미통과|지도필요/.test(v)) return 'r';
+      if (/지각|일부|미응시|보완|미완|미지참/.test(v)) return 'y';
+      if (/출석|완료|통과|우수/.test(v)) return 'g';
+      return '';
+    }
+    function lScoreTone(s) { return s.score === '' ? '' : /→통과/.test(s.pass) ? 'b' : /^통과/.test(s.pass) ? 'g' : /미통과/.test(s.pass) ? 'r' : s.pass ? 'y' : ''; }
     function lCellSel(s, f, list, lab) {
-      var cur = s[f] || '';
-      return '<select class="lsel' + (cur ? ' on' : '') + '" data-ls="' + f + '" aria-label="' + esc(s.name + ' ' + lab) + '"><option value="">—</option>' +
+      var cur = s[f] || '', t = lTone(cur);
+      return '<select class="lsel' + (cur ? ' on' : '') + (t ? ' t-' + t : '') + '" data-ls="' + f + '" aria-label="' + esc(s.name + ' ' + lab) + '"><option value="">—</option>' +
         (list || []).map(function (v) { return '<option' + (cur === v ? ' selected' : '') + '>' + esc(v) + '</option>'; }).join('') +
         (cur && (list || []).indexOf(cur) < 0 ? '<option selected>' + esc(cur) + '</option>' : '') + '</select>';
     }
@@ -1998,10 +2018,11 @@ tr.quit td { color: var(--muted); }
         mine.map(function (s) {
           // 칸에서 바로 고르기 (이름을 누르면 예전처럼 입력 카드). 과제·리뷰·재시험·태도는 출석·지각일 때만
           var ch = V.L.choices, can = s.att === '출석' || s.att === '지각';
-          return '<tr class="lst-tk' + (!s.att ? ' hl' : '') + '"' + sAttrs(s) + '><td>' + selBox(s) + '</td><td><b>' + esc(s.name) + '</b></td>' +
+          var at = lTone(s.att);
+          return '<tr class="lst-tk' + (!s.att ? ' hl' : '') + (at ? ' a-' + at : '') + '"' + sAttrs(s) + '><td>' + selBox(s) + '</td><td><b>' + esc(s.name) + '</b></td>' +
             '<td class="ed">' + lCellSel(s, 'att', ch.att, '출석') + '</td>' +
             (can ? '<td class="ed">' + lCellSel(s, 'hw', ch.hw, '과제') + '</td>' : '<td>' + esc(s.hw || '—') + '</td>') +
-            (can ? '<td class="ed mono"><input class="lsel' + (s.score !== '' ? ' on' : '') + '" type="number" min="0" max="100" inputmode="numeric" data-ls="score" data-fk="l|' + esc(sKey(s)) + '|score" value="' + esc(s.score) + '" placeholder="점수" aria-label="' + esc(s.name) + ' 리뷰 점수">' + (s.pass ? ' <span class="st-mute">' + esc(s.pass) + '</span>' : '') + '</td>'
+            (can ? '<td class="ed mono"><input class="lsel' + (s.score !== '' ? ' on' : '') + (lScoreTone(s) ? ' t-' + lScoreTone(s) : '') + '" type="number" min="0" max="100" inputmode="numeric" data-ls="score" data-fk="l|' + esc(sKey(s)) + '|score" value="' + esc(s.score) + '" placeholder="점수" aria-label="' + esc(s.name) + ' 리뷰 점수">' + (s.pass ? ' <span class="st-mute">' + esc(s.pass) + '</span>' : '') + '</td>'
               : '<td class="mono">' + (s.score !== '' ? esc(s.score) + '점' : '—') + '</td>') +
             (can ? '<td class="ed">' + lCellSel(s, 'retest', ch.retest, '재시험') + '</td>' : '<td>' + esc(s.retest || '—') + '</td>') +
             (can ? '<td class="ed">' + lCellSel(s, 'atti', ch.atti, '태도') : '<td>' + esc(s.atti || '—')) + (s.cmt ? ' <span class="st-mute">💬</span>' : '') + '</td>' +
@@ -2172,6 +2193,7 @@ tr.quit td { color: var(--muted); }
         if (!s || String(s[f2] == null ? '' : s[f2]) === v2) return;
         if (f2 === 'att' && (s.hw || s.score !== '') && !/^(출석|지각)$/.test(v2) && !confirm(s.name + ' 출석을 ' + (v2 || '미입력') + '(으)로 바꿀까요?')) { el.value = s.att || ''; return; }
         s[f2] = v2;
+        if (el.tagName === 'SELECT' && el.closest('.lst-tk')) drawLesson();   // 목록 칸: 저장 기다리지 않고 바로 색·칸 바꿈
         run('apiLessonStudent', [s.row, s.name, s.cls, f2, v2], lessonSet);
       }
     }
