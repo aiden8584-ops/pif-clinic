@@ -512,6 +512,9 @@ tr.quit td { color: var(--muted); }
 .rform { padding: 16px; margin-bottom: 14px; display: grid; gap: 14px; border-color: var(--accent); }
 .rform h3 { margin: 0; font-size: 17px; }
 .chform[data-kind="결석"] .f-new, .chform[data-kind="추가등원"] .f-orig { display: none; }
+.wel-side { display: grid; gap: 6px; margin-bottom: 12px; }
+.wel-side .preview { background: var(--bg); border-radius: 9px; padding: 10px 12px; font-size: 13.5px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 260px; overflow-y: auto; }
+.wel-res { display: flex; gap: 8px; align-items: center; font-size: 14px; }
 .chl .del { margin-left: auto; flex: 0 0 auto; min-height: 34px; padding: 4px 12px; font-size: 13px; }
 .chk { display: flex; align-items: center; gap: 8px; font-size: 14px; }
 .chk input { width: 18px; height: 18px; }
@@ -677,7 +680,7 @@ tr.quit td { color: var(--muted); }
   // ---------- 입장(공용 비밀번호) ----------
   var AUTH_FNS = { apiGetToday: 1, apiUpdate: 1, apiNudge: 1, apiAckBoss: 1, apiSetNotice: 1, apiAckNotice: 1,
     apiMsgPreview: 1, apiHistory: 1, apiReportList: 1, apiReportExclude: 1, apiReportReason: 1, apiReportSendNow: 1, apiWeekly: 1, apiLessonGet: 1, apiLessonClass: 1, apiLessonStudent: 1, apiLessonAbsent: 1, apiLessonSendNow: 1, apiLessonBulk: 1, apiLessonClear: 1, apiLessonExclAll: 1, apiLessonSendOne: 1, apiLessonSendMany: 1, apiNoticeList: 1, apiNoticeSave: 1,
-    apiReqList: 1, apiReqConnect: 1, apiReqDecide: 1, apiChangeAdd: 1, apiChangeDelete: 1, apiRosterGet: 1, apiRosterSave: 1, apiRuleGet: 1, apiSettingsSave: 1 };
+    apiReqList: 1, apiReqConnect: 1, apiReqDecide: 1, apiChangeAdd: 1, apiChangeDelete: 1, apiRosterGet: 1, apiRosterSave: 1, apiWelcomePreview: 1, apiWelcomeSend: 1, apiRuleGet: 1, apiSettingsSave: 1 };
   var auth = { token: '', staff: '', admin: false };
   try { auth.token = localStorage.getItem('pif_token') || ''; auth.staff = localStorage.getItem('pif_staff') || ''; } catch (e) {}
 
@@ -1758,6 +1761,19 @@ tr.quit td { color: var(--muted); }
           return { changes: clone(C), msg: d.name + ' 일정변경을 넣었습니다. (데모)' };
         },
         apiChangeDelete: function (row) { Q.changes.rows = Q.changes.rows.filter(function (r) { return r.row !== row; }); return { changes: clone(Q.changes), msg: '지웠습니다. (데모)' }; },
+        apiWelcomePreview: function (row, disp) {
+          var r = RO.rows.filter(function (x) { return x.row === row; })[0];
+          var nm = (r.name || r.disp).replace(/\(.*\)$/, ''), side = function (who, t, to) { var s = t.replace(/\{이름\}/g, nm); return { who: who, to: to || '', text: s, bytes: s.length * 2, unset: false }; };
+          return { row: row, disp: r.disp, name: nm, cls: r.cls, stop: !!r.stop, sentAt: r.welcomeAt || '', subject: 'PIF영어학원 신규 등록 안내',
+            sides: [side('학부모', '{이름} 학부모님, PIF영어학원 등록을 환영합니다. (데모 문구)', r.parent), side('학생', '{이름} 학생, 반가워요! (데모 문구)', r.phone)] };
+        },
+        apiWelcomeSend: function (row, disp, force) {
+          var w = demo.apiWelcomePreview(row, disp);
+          if (w.sentAt && !force) throw new Error('ALREADY_SENT:' + w.sentAt);
+          var res = w.sides.map(function (s) { return s.to ? { who: s.who, to: s.to, ok: true, why: '' } : { who: s.who, to: '', ok: false, skipped: true, why: '번호 없음 · 건너뜀' }; });
+          RO.rows.filter(function (x) { return x.row === row; })[0].welcomeAt = ymd(new Date());
+          return { results: res, msg: w.disp + ' 안내문 발송 완료 (데모)', data: clone(RO) };
+        },
         apiRosterGet: function () { return clone(RO); },
         apiRosterSave: function (row, d) {
           if (!row) {
@@ -2367,9 +2383,10 @@ tr.quit td { color: var(--muted); }
         rsorted(list).map(function (r) {
           return '<tr class="click' + (r.status === '퇴원' ? ' quit' : '') + '" data-row="' + r.row + '"><td><b>' + esc(r.disp) + '</b></td><td>' + esc(r.cls) + '</td><td>' + esc(r.school) + '</td><td>' + esc(r.lessonDay) + '</td>' +
             '<td class="num">' + esc(r.clinicDay) + ' ' + esc(r.clinicTime) + '</td><td class="num">' + esc(r.sunTime) + '</td><td class="num">' + esc(phone(r.phone)) + '</td><td class="num">' + esc(phone(r.parent)) + '</td>' +
-            '<td><span class="pill ' + (r.status === '재원' ? 's-in' : r.status === '휴원' ? 's-late' : 's-out') + '">' + esc(r.status) + '</span>' + (r.stop ? ' <span class="chip kind">알림중지</span>' : '') + (r.remindOff && r.remindOff >= todayYMD() ? ' <span class="chip kind">예정문자 중지 ~' + esc(r.remindOff.slice(5).replace('-', '/')) + '</span>' : '') + '</td><td class="memo">' + esc(r.memo) + '</td></tr>';
+            '<td><span class="pill ' + (r.status === '재원' ? 's-in' : r.status === '휴원' ? 's-late' : 's-out') + '">' + esc(r.status) + '</span>' + (r.stop ? ' <span class="chip kind">알림중지</span>' : '') + (r.remindOff && r.remindOff >= todayYMD() ? ' <span class="chip kind">예정문자 중지 ~' + esc(r.remindOff.slice(5).replace('-', '/')) + '</span>' : '') + (r.welcomeAt ? ' <span class="chip kind">안내문 ✓' + esc(r.welcomeAt.slice(5).replace('-', '/')) + '</span>' : '') + '</td><td class="memo">' + esc(r.memo) + '</td></tr>';
         }).join('') + '</tbody></table></div>';
       if (!list.length) h += '<div class="empty">해당하는 학생이 없습니다.</div>';
+      if (V.wel) h += welHTML(V.wel);
       paint($('view-roster'), h);
     }
     // ---- 학생명단: 제목을 누르면 정렬 (오름 → 내림 → 기본 순서) ----
@@ -2421,7 +2438,34 @@ tr.quit td { color: var(--muted); }
         '<label class="row"><span class="lab"><span>예정문자 중지</span><span>이 날짜까지 1시간 전 알림만 끔</span></span><input class="txt" type="date" data-rf="remindOff" value="' + esc(e.remindOff || '') + '"></label>' +
         '<label class="row wide"><span class="lab"><span>메모</span></span><input class="txt" data-rf="memo" data-fk="rf|memo" value="' + esc(e.memo) + '" maxlength="300"></label>' +
         '</div><p class="note">클리닉 요일·시간을 바꾸면 내일 오늘 탭부터 반영됩니다.</p>' +
+        (isNew ? '' : '<div class="act"><button class="btn" type="button" id="rwel">✉ 신규 안내문 보내기' + (e.welcomeAt ? ' (보냄 ' + esc(e.welcomeAt.slice(5).replace('-', '/')) + ')' : '') + '</button></div>') +
         '<div class="act"><button class="btn ghost" type="button" id="rcancel">닫기</button><button class="btn primary" type="submit">' + (isNew ? '추가' : '저장') + '</button></div></form>';
+    }
+    // ---- ✉️ 신규 안내문: 미리보기 → 보내기 → 결과 ----
+    function welHTML(w) {
+      var unset = w.sides.some(function (s) { return s.unset; }), none = !w.sides.some(function (s) { return s.to; });
+      var body;
+      if (w.result) {
+        body = w.result.map(function (x) {
+          return '<div class="wel-res"><span class="pill ' + (x.ok ? 's-in' : x.skipped ? 's-out' : 's-abs') + '">' + (x.ok ? '발송 완료' : x.skipped ? '건너뜀' : '실패') + '</span><b>' + esc(x.who) + '</b>' +
+            '<span class="st-mute">' + esc(x.to ? phone(x.to) : '') + (x.why ? ' · ' + esc(x.why) : '') + '</span></div>';
+        }).join('') + '<p class="note">학생명단 \'안내문 발송일\'에 기록했습니다. 🗒발송기록에도 남습니다.</p>' +
+          '<div class="act"><button class="btn primary" type="button" data-wclose>닫기</button></div>';
+      } else {
+        body = (w.sentAt ? '<p class="note warn">⚠️ ' + esc(mdw(w.sentAt)) + '에 이미 보냈어요. 다시 보내면 같은 문자가 한 번 더 갑니다.</p>' : '') +
+          (w.stop ? '<p class="note warn">학생명단에서 \'알림중지\'된 학생이에요. 안내문은 그래도 보냅니다.</p>' : '') +
+          (unset ? '<p class="note bad">안내문 문구가 아직 없습니다. Apps Script Admin.gs 맨 위 WELCOME_PARENT_TEXT / WELCOME_STUDENT_TEXT에 문구를 넣어 주세요.</p>' : '') +
+          w.sides.map(function (s) {
+            return '<div class="wel-side"><div class="lab"><span>' + esc(s.who) + '용</span><span>' +
+              (s.to ? '받는 번호 <b>' + esc(phone(s.to)) + '</b>' : '<b class="st-warn">번호 없음 · 건너뜀</b>') + ' · ' +
+              '<span class="' + (s.bytes > 2000 ? 'st-warn' : '') + '">' + s.bytes.toLocaleString() + ' / 2,000byte</span></span></div>' +
+              '<div class="preview">' + esc(s.text) + '</div></div>';
+          }).join('') +
+          '<div class="act"><button class="btn ghost" type="button" data-wclose>닫기</button><button class="btn primary" type="button" id="wsend"' + (unset || none ? ' disabled' : '') + '>' +
+          (w.sentAt ? '그래도 다시 보내기' : '보내기') + '</button></div>';
+      }
+      return popHTML({ bg: 'data-wbg', close: 'data-wclose', name: w.disp, n: 1,
+        sub: (w.cls ? '<span class="chip">' + esc(w.cls) + '</span>' : '') + '<span class="chip kind">신규 안내문 · 장문 문자</span>', body: body });
     }
     function readForm() {
       var d = Object.assign({}, V.edit);
@@ -2440,6 +2484,26 @@ tr.quit td { color: var(--muted); }
       if (so && (ev.key === 'Enter' || ev.key === ' ')) { ev.preventDefault(); rsortClick(so.dataset.rsort); }
     });
     $('view-roster').addEventListener('click', function (ev) {
+      if (ev.target.closest('#rwel') && V.edit) {
+        var e0 = V.edit, wb = ev.target.closest('#rwel'); wb.disabled = true;
+        run('apiWelcomePreview', [e0.row, e0.disp], function (w) { wb.disabled = false; if (w) { V.wel = w; drawRoster(); } });
+        return;
+      }
+      if ((ev.target.hasAttribute && ev.target.hasAttribute('data-wbg')) || ev.target.closest('[data-wclose]')) { V.wel = null; drawRoster(); return; }
+      var ws = ev.target.closest('#wsend');
+      if (ws && V.wel) {
+        var w = V.wel;
+        if (!sure(ws, w.sentAt ? '정말 다시 보낼까요? 한 번 더' : '한 번 더 누르면 발송', 4000)) return;
+        ws.disabled = true;
+        run('apiWelcomeSend', [w.row, w.disp, !!w.sentAt], function (res) {
+          if (!res) return;
+          V.RO = res.data;
+          var nr = res.data.rows.filter(function (x) { return x.row === w.row; })[0];
+          if (V.edit && nr && V.edit.row === w.row) V.edit.welcomeAt = nr.welcomeAt;
+          V.wel = Object.assign({}, w, { result: res.results }); drawRoster(); toast(res.msg);
+        });
+        return;
+      }
       var so = ev.target.closest('[data-rsort]'); if (so) { rsortClick(so.dataset.rsort); return; }
       if (ev.target.closest('#radd')) { V.edit = { row: 0, disp: '', name: '', school: '', cls: '', lessonDay: '', clinicDay: '', clinicTime: '', sunTime: '', phone: '', parent: '', status: '재원', stop: false, remindOff: '', memo: '' }; drawRoster(); window.scrollTo(0, 0); return; }
       if (ev.target.closest('#rcancel')) { V.edit = null; drawRoster(); return; }
