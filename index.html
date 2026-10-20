@@ -541,6 +541,10 @@ table.t tr.hl td { background: var(--warn-soft); }
 table.t td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
 table.t td.memo { white-space: normal; min-width: 160px; color: var(--muted); }
 table.t.lgt td { vertical-align: top; }
+.mup { padding: 14px; margin-bottom: 12px; display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; justify-content: space-between; }
+.mup .mpick { flex: 0 0 auto; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+.mup .mpick.dis { opacity: .7; cursor: default; }
+table.t.mtab td.mname { white-space: normal; min-width: 200px; max-width: 420px; overflow-wrap: anywhere; font-weight: 600; }
 table.t.lgt td.wrap { white-space: normal; min-width: 160px; max-width: 340px; overflow-wrap: anywhere; }
 table.t.lgt .mute { color: var(--muted); }
 tr.quit td { color: var(--muted); }
@@ -606,6 +610,7 @@ tr.quit td { color: var(--muted); }
       <button class="tab" type="button" data-v="lesson">수업피드백</button>
       <button class="tab" type="button" data-v="llog">수업로그</button>
       <button class="tab" type="button" data-v="notice">학생 공지</button>
+      <button class="tab" type="button" data-v="mat">자료</button>
       <button class="tab" type="button" data-v="req">변경신청 <span class="cnt" id="reqCnt" hidden></span></button>
       <button class="tab" type="button" data-v="roster">학생명단</button>
       <button class="tab" type="button" data-v="week">주간 현황</button>
@@ -634,6 +639,7 @@ tr.quit td { color: var(--muted); }
     <div id="view-report" hidden></div>
     <div id="view-week" hidden></div>
     <div id="view-notice" hidden></div>
+    <div id="view-mat" hidden></div>
   </div>
 </main>
 <div class="toast" id="toast" hidden></div>
@@ -728,14 +734,14 @@ tr.quit td { color: var(--muted); }
 
   // ---------- 입장(공용 비밀번호) ----------
   var AUTH_FNS = { apiGetToday: 1, apiUpdate: 1, apiNudge: 1, apiAckBoss: 1, apiSetNotice: 1, apiAckNotice: 1,
-    apiMsgPreview: 1, apiHistory: 1, apiReportList: 1, apiReportExclude: 1, apiReportReason: 1, apiReportSendNow: 1, apiWeekly: 1, apiLessonGet: 1, apiLessonClass: 1, apiLessonStudent: 1, apiLessonAbsent: 1, apiLessonSendNow: 1, apiLessonBulk: 1, apiLessonClear: 1, apiLessonExclAll: 1, apiLessonSendOne: 1, apiLessonSendMany: 1, apiNoticeList: 1, apiNoticeSave: 1, apiLessonHist: 1, apiLessonLog: 1, apiLessonDay: 1,
+    apiMsgPreview: 1, apiHistory: 1, apiReportList: 1, apiReportExclude: 1, apiReportReason: 1, apiReportSendNow: 1, apiWeekly: 1, apiLessonGet: 1, apiLessonClass: 1, apiLessonStudent: 1, apiLessonAbsent: 1, apiLessonSendNow: 1, apiLessonBulk: 1, apiLessonClear: 1, apiLessonExclAll: 1, apiLessonSendOne: 1, apiLessonSendMany: 1, apiNoticeList: 1, apiNoticeSave: 1, apiLessonHist: 1, apiLessonLog: 1, apiLessonDay: 1, apiMatList: 1, apiMatUpload: 1, apiMatHide: 1,
     apiReqList: 1, apiReqConnect: 1, apiReqDecide: 1, apiChangeAdd: 1, apiChangeDelete: 1, apiRosterGet: 1, apiRosterSave: 1, apiWelcomePreview: 1, apiWelcomeSend: 1, apiRuleGet: 1, apiSettingsSave: 1 };
   var auth = { token: '', staff: '', admin: false };
   try { auth.token = localStorage.getItem('pif_token') || ''; auth.staff = localStorage.getItem('pif_staff') || ''; } catch (e) {}
 
   // 다시 시도해도 되는 '읽기만 하는' 요청 (저장·발송·공지 저장은 넣지 않음: 두 번 실행될 수 있음)
   var READ_FNS = { apiLoginInfo: 1, apiGetToday: 1, apiHistory: 1, apiLessonHist: 1, apiMsgPreview: 1, apiLessonGet: 1, apiLessonLog: 1, apiLessonDay: 1,
-    apiReqList: 1, apiRosterGet: 1, apiRuleGet: 1, apiReportList: 1, apiWeekly: 1, apiNoticeList: 1 };
+    apiReqList: 1, apiRosterGet: 1, apiRuleGet: 1, apiReportList: 1, apiWeekly: 1, apiNoticeList: 1, apiMatList: 1 };
   function call(fn) {
     var args = Array.prototype.slice.call(arguments, 1);
     if (AUTH_FNS[fn] && !DEMO) args.unshift(auth.token);
@@ -1741,8 +1747,8 @@ tr.quit td { color: var(--muted); }
               rq: '', rcls: '', rst: '재원', ruleWarn: false, lopen: {} };
     try { var sv = localStorage.getItem('pif_view'); if (sv) V.view = sv; } catch (e) {}
     try { var ll = localStorage.getItem('pif_llayout'); if (ll === 'board' || ll === 'list') V.llay = ll; } catch (e) {}
-    var TITLES = { today: '오늘 클리닉', report: '성취도 문자', lesson: '수업피드백', llog: '수업로그', notice: '학생 공지', req: '변경신청', roster: '학생명단', week: '주간 현황', rule: '규정·설정' };
-    var VIEWS = ['today', 'report', 'lesson', 'llog', 'notice', 'req', 'roster', 'week', 'rule'];
+    var TITLES = { today: '오늘 클리닉', report: '성취도 문자', lesson: '수업피드백', llog: '수업로그', mat: '자료', notice: '학생 공지', req: '변경신청', roster: '학생명단', week: '주간 현황', rule: '규정·설정' };
+    var VIEWS = ['today', 'report', 'lesson', 'llog', 'notice', 'mat', 'req', 'roster', 'week', 'rule'];
 
     // ---------- 미리보기용 예시 데이터 ----------
     if (DEMO) (function () {
@@ -1838,6 +1844,11 @@ tr.quit td { color: var(--muted); }
           { disp: '(예시) 박서연', cls: '서울2', school: '서울고', from: '2026-11-02', to: '2026-12-10', absent: 0, late: 2, makeup: 2, change: 2, flag: '' },
           { disp: '(예시) 김도윤', cls: '서울2', school: '서울고', from: '2026-11-02', to: '2026-12-10', absent: 0, late: 0, makeup: 0, change: 1, flag: '' }
         ] };
+      var demoMat = { maxMb: 20, folders: [
+        { label: '전체', id: 'fall', files: [{ id: 'm1', name: '학원 시간표.png', hidden: false, sub: '', size: 204800, updated: '2026-10-01' }] },
+        { label: '서울고', id: 'fsch', files: [{ id: 'm2', name: '서울고 2학기 중간 기출.pdf', hidden: false, sub: '기출', size: 2621440, updated: '2026-10-15' }] },
+        { label: '서울1', id: 'fs1', files: [{ id: 'm3', name: 'Unit 5 단어장.pdf', hidden: false, sub: '', size: 524288, updated: '2026-10-20' }, { id: 'm4', name: '지난 학기 프린트.pdf', hidden: true, sub: '', size: 1048576, updated: '2026-09-02' }] },
+        { label: '서울2', id: 'fs2', files: [] }] };
       Object.assign(demo, {
         apiLessonGet: function () { rebuild(); return clone(L); },
         apiLessonClass: function (row, cls, field, value) {
@@ -1973,6 +1984,17 @@ tr.quit td { color: var(--muted); }
               { name: '(예시) 박도윤', att: '지각', hw: '완료', score: '95', pass: '통과', retest: '', atti: '보완', cmt: '지각 15분', excl: false, status: '발송완료 22:30' }] }];
           return { date: ymd, today: d(0), classes: cl, dates: dates };
         },
+        apiMatList: function () { return JSON.parse(JSON.stringify(demoMat)); },
+        apiMatUpload: function (d) {
+          var f = demoMat.folders.filter(function (x) { return x.id === d.folder; })[0];
+          f.files.unshift({ id: 'm' + Date.now(), name: d.name, hidden: false, sub: '', size: Math.round(String(d.b64 || '').length * 0.75), updated: new Date().toISOString().slice(0, 10) });
+          return { data: JSON.parse(JSON.stringify(demoMat)), msg: f.label + ' 자료에 "' + d.name + '"을(를) 올렸어요. 학생 앱에 바로 보여요.' };
+        },
+        apiMatHide: function (id, hide) {
+          var x = null; demoMat.folders.forEach(function (f) { f.files.forEach(function (y) { if (y.id === id) x = y; }); });
+          x.hidden = !!hide;
+          return { data: JSON.parse(JSON.stringify(demoMat)), msg: '"' + x.name + '"' + (hide ? '을(를) 학생 앱에서 숨겼어요.' : '을(를) 다시 보이게 했어요.') };
+        },
         apiLessonLog: function () {
           var d = function (n) { var t = new Date(); t.setDate(t.getDate() - n); return t.getFullYear() + '-' + ('0' + (t.getMonth() + 1)).slice(-2) + '-' + ('0' + t.getDate()).slice(-2); };
           var rows = [
@@ -2083,8 +2105,8 @@ tr.quit td { color: var(--muted); }
     }
     $('tabs').addEventListener('click', function (ev) { var b = ev.target.closest('.tab'); if (b) { show(b.dataset.v); window.scrollTo(0, 0); } });
 
-    var FETCH = { lesson: 'apiLessonGet', req: 'apiReqList', roster: 'apiRosterGet', rule: 'apiRuleGet', report: 'apiReportList', week: 'apiWeekly', notice: 'apiNoticeList', llog: 'apiLessonLog' };
-    var KEY = { lesson: 'L', req: 'Q', roster: 'RO', rule: 'RU', report: 'RP', week: 'WK', notice: 'NT', llog: 'LG' };
+    var FETCH = { lesson: 'apiLessonGet', req: 'apiReqList', roster: 'apiRosterGet', rule: 'apiRuleGet', report: 'apiReportList', week: 'apiWeekly', notice: 'apiNoticeList', llog: 'apiLessonLog', mat: 'apiMatList' };
+    var KEY = { lesson: 'L', req: 'Q', roster: 'RO', rule: 'RU', report: 'RP', week: 'WK', notice: 'NT', llog: 'LG', mat: 'MT' };
     function reload() {
       var v = V.view; if (!FETCH[v]) return;
       if (pending) return;
@@ -2097,7 +2119,73 @@ tr.quit td { color: var(--muted); }
         if (!V[KEY[v]]) $('view-' + v).innerHTML = '<div class="loading">불러오지 못했습니다. 위의 ↻를 눌러 다시 시도해 주세요.</div>';
       });
     }
-    function draw(v) { ({ lesson: drawLesson, req: drawReq, roster: drawRoster, rule: drawRule, report: drawReport, week: drawWeek, notice: drawNotice, llog: drawLlog })[v](); }
+    function draw(v) { ({ lesson: drawLesson, req: drawReq, roster: drawRoster, rule: drawRule, report: drawReport, week: drawWeek, notice: drawNotice, llog: drawLlog, mat: drawMat })[v](); }
+
+    // =========================== 자료 (학생 앱 '자료' 탭) ===========================
+    V.mfold = ''; V.mbusy = '';
+    try { V.mfold = localStorage.getItem('pif_mfold') || ''; } catch (e) {}
+    function mSize(n) { n = Number(n) || 0; return n >= 1048576 ? (n / 1048576).toFixed(1) + 'MB' : Math.max(1, Math.round(n / 1024)) + 'KB'; }
+    function drawMat() {
+      var M = V.MT, h = '';
+      var fs = M.folders || [];
+      if (!fs.some(function (f) { return f.id === V.mfold; })) V.mfold = fs.length ? fs[0].id : '';
+      var cur = fs.filter(function (f) { return f.id === V.mfold; })[0];
+      h += '<div class="vhead"><span class="sub">학생·학부모 앱 \'자료\' 탭에 반별로 보여요 · 파일 하나 ' + (M.maxMb || 20) + 'MB까지 · 숨기면 학생 앱에서만 안 보이고 드라이브에는 남아요</span></div>';
+      if (!fs.length) { h += '<div class="empty">📁자료폴더 탭에 반별 폴더가 없어요. 학습실 서버의 setup을 먼저 실행해 주세요.</div>'; paint($('view-mat'), h); return; }
+      h += '<div class="filters" style="margin-bottom:12px">' + fs.map(function (f) {
+        var n = f.files.filter(function (x) { return !x.hidden; }).length;
+        return '<button class="f" type="button" data-mf="' + esc(f.id) + '" aria-pressed="' + (f.id === V.mfold) + '">' + esc(f.label === '전체' ? '전체 (공통)' : f.label) + ' <b>' + n + '</b></button>';
+      }).join('') + '</div>';
+      h += '<div class="panel mup"><div><b>' + esc(cur.label === '전체' ? '전체 학생 공통' : cur.label) + '</b> 자료에 올리기</div>' +
+        '<label class="btn primary mpick' + (V.mbusy ? ' dis' : '') + '"><input type="file" id="mfile" multiple hidden' + (V.mbusy ? ' disabled' : '') + '>' + (V.mbusy ? esc(V.mbusy) : '＋ 파일 고르기') + '</label>' +
+        (cur.error ? '<p class="note bad">' + esc(cur.error) + '</p>' : '') + '</div>';
+      if (!cur.files.length) h += '<div class="empty">아직 올린 자료가 없어요.</div>';
+      else h += '<div class="panel tablewrap"><table class="t mtab"><thead><tr><th>파일 이름</th><th>하위 폴더</th><th>크기</th><th>날짜</th><th>학생 앱</th><th></th></tr></thead><tbody>' +
+        cur.files.map(function (x) {
+          return '<tr' + (x.hidden ? ' class="quit"' : '') + '><td class="mname">' + esc(x.name) + '</td><td>' + esc(x.sub || '') + '</td><td class="num">' + mSize(x.size) + '</td><td class="num">' + mdw(x.updated) + '</td>' +
+            '<td>' + (x.hidden ? '<span class="pill s-out">숨김</span>' : '<span class="pill s-in">보임</span>') + '</td>' +
+            '<td><button class="btn ghost" type="button" data-mh="' + esc(x.id) + '" data-hide="' + (x.hidden ? '0' : '1') + '">' + (x.hidden ? '다시 보이기' : '숨기기') + '</button></td></tr>';
+        }).join('') + '</tbody></table></div>';
+      paint($('view-mat'), h);
+    }
+    function matSet(res) { var d = res && res.data ? res.data : res; if (d && d.folders) { V.MT = d; drawMat(); } if (res && res.msg) toast(res.msg); }
+    // 파일 → base64 (브라우저에서 읽음)
+    function readB64(file) {
+      return new Promise(function (ok, bad) {
+        var r = new FileReader();
+        r.onload = function () { var s = String(r.result || ''); ok(s.slice(s.indexOf(',') + 1)); };
+        r.onerror = function () { bad(new Error(file.name + ' 파일을 읽지 못했어요.')); };
+        r.readAsDataURL(file);
+      });
+    }
+    $('view-mat').addEventListener('change', function (ev) {
+      if (ev.target.id !== 'mfile') return;
+      var files = Array.prototype.slice.call(ev.target.files || []), folder = V.mfold, max = (V.MT && V.MT.maxMb || 20) * 1048576;
+      ev.target.value = '';
+      var big = files.filter(function (f) { return f.size > max; });
+      if (big.length) toast(big.map(function (f) { return f.name; }).join(', ') + ' — ' + (V.MT.maxMb || 20) + 'MB가 넘어서 뺐어요. 큰 파일은 드라이브에 직접 넣어 주세요.', true);
+      files = files.filter(function (f) { return f.size <= max && f.size > 0; });
+      if (!files.length || !folder) return;
+      var i = 0;
+      var next = function () {
+        if (i >= files.length) { V.mbusy = ''; drawMat(); return; }
+        var f = files[i++];
+        V.mbusy = '올리는 중 ' + i + '/' + files.length + ' · ' + f.name; drawMat();
+        readB64(f).then(function (b64) {
+          return run('apiMatUpload', [{ folder: folder, name: f.name, mime: f.type || '', b64: b64 }], matSet);
+        }).then(function (r) { if (r) next(); else { V.mbusy = ''; drawMat(); } }, function (err) { toast(errMsg(err).replace(/^Error:\s*/, ''), true); V.mbusy = ''; drawMat(); });
+      };
+      next();
+    });
+    $('view-mat').addEventListener('click', function (ev) {
+      var fb = ev.target.closest('[data-mf]');
+      if (fb) { V.mfold = fb.dataset.mf; try { localStorage.setItem('pif_mfold', V.mfold); } catch (e) {} drawMat(); return; }
+      var hb = ev.target.closest('[data-mh]'); if (!hb || hb.disabled || V.mbusy) return;
+      var hide = hb.dataset.hide === '1';
+      if (hide && hb.dataset.sure !== '1') { hb.dataset.sure = '1'; hb.textContent = '한 번 더 → 숨기기'; setTimeout(function () { if (hb.isConnected) { hb.dataset.sure = ''; hb.textContent = '숨기기'; } }, 3000); return; }
+      hb.disabled = true;
+      run('apiMatHide', [hb.dataset.mh, hide], matSet);
+    });
 
     // =========================== 수업로그 (반별 진도·과제) ===========================
     V.lgcls = '';
@@ -3027,13 +3115,15 @@ tr.quit td { color: var(--muted); }
       var W = V.WK, h = '';
       h += '<div class="vhead"><span class="lay" role="group" aria-label="주 선택">' + [[0, '이번 주'], [1, '지난 주'], [2, '2주 전'], [3, '3주 전']].map(function (x) {
         return '<button type="button" data-wk="' + x[0] + '" aria-pressed="' + ((V.wk || 0) === x[0]) + '">' + x[1] + '</button>'; }).join('') + '</span>' +
-        '<span class="sub">' + mdw(W.from) + ' ~ ' + mdw(W.to) + ' · 학생 ' + W.rows.length + '명</span></div>';
+        '<span class="sub">' + (W.perClass ? '반마다 수업 요일부터 7일 (수요일 반 = 수~다음 주 화)' : mdw(W.from) + ' ~ ' + mdw(W.to)) + ' · 학생 ' + W.rows.length + '명</span></div>';
+      var md = function (d) { var m = /\d{4}-(\d{2})-(\d{2})/.exec(d || ''); return m ? (+m[1]) + '/' + (+m[2]) : ''; };
       var flags = W.rows.filter(function (r) { return r.absent > 0 || (pct(r.wbDone, r.wbAll) != null && pct(r.wbDone, r.wbAll) < 70) || (r.avg != null && r.lPass < r.scoreN); });
       h += '<p class="note" style="margin:0 0 10px">주의 학생 ' + flags.length + '명 — 무단결석, 워크북 완료 70% 미만, 리뷰 미통과가 있으면 노란 줄로 표시합니다.</p>';
-      h += '<div class="panel tablewrap"><table class="t"><thead><tr><th>표시명</th><th>반</th><th>클리닉 출석</th><th>지각</th><th>무단결석</th><th>워크북 완료</th><th>실전 완료</th><th>재시 통과</th><th>수업 출석</th><th>리뷰 평균</th><th>리뷰 통과</th><th>수업 과제 완료</th></tr></thead><tbody>' +
+      h += '<div class="panel tablewrap"><table class="t"><thead><tr><th>표시명</th><th>반</th><th>기간</th><th>클리닉 출석</th><th>지각</th><th>무단결석</th><th>워크북 완료</th><th>실전 완료</th><th>재시 통과</th><th>수업 출석</th><th>리뷰 평균</th><th>리뷰 통과</th><th>수업 과제 완료</th></tr></thead><tbody>' +
         W.rows.map(function (r) {
           var warn = flags.indexOf(r) !== -1;
           return '<tr' + (warn ? ' class="hl"' : '') + '><td><b>' + esc(r.name) + '</b></td><td>' + esc(r.cls) + '</td>' +
+            '<td class="num">' + (r.from ? mdw(r.from) + ' ~ ' + md(r.to) : '') + '</td>' +
             '<td class="num">' + (r.clinic ? r.att + '/' + r.clinic : '—') + '</td><td class="num">' + (r.late || '') + '</td>' +
             '<td class="num">' + (r.absent ? '<span class="st-warn" style="color:var(--bad);font-weight:700">' + r.absent + '</span>' : '') + (r.excused ? ' <span class="st-mute">(사유 ' + r.excused + ')</span>' : '') + '</td>' +
             '<td>' + rate(r.wbDone, r.wbAll, 70) + '</td><td>' + rate(r.exDone, r.exAll, 70) + '</td><td>' + rate(r.rtPass, r.rtAll, 100) + '</td>' +
