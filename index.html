@@ -832,6 +832,7 @@ table.t td.ck input, table.t th.ck input { width: 18px; height: 18px; }
   function showLogin() {
     auth.token = ''; auth.admin = false;
     try { localStorage.removeItem('pif_token'); } catch (e) {}
+    snapClear(); state.snapShown = false;
     if (window.PIFADM) PIFADM.reset();
     $('appTop').hidden = true; $('appMain').hidden = true; $('loginView').hidden = false;
     pickedName = auth.staff;
@@ -1590,29 +1591,53 @@ table.t td.ck input, table.t th.ck input { width: 18px; height: 18px; }
 
   // ---------- 불러오기 ----------
   var loading = false, touching = 0;
+  // ---- 마지막 화면 보관 (앱을 열면 저장본을 바로 보여 주고 뒤에서 최신으로 바꿈) ----
+  // 같은 기기·같은 사람·같은 날짜일 때만 씀. 전화번호 같은 칸은 저장하지 않음. 나가기(로그아웃) 하면 지움.
+  var SNAP_PRE = 'pif_snap_';
+  function snapDay() { var d = new Date(); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
+  function snapPut(v, data) {
+    try {
+      var s = JSON.stringify({ who: auth.staff || '', day: snapDay(), d: data }, function (k, x) { return /^(phone|parent|parentPhone|studentPhone|to|tel)$/.test(k) ? undefined : x; });
+      localStorage.setItem(SNAP_PRE + v, s);
+    } catch (e) {}
+  }
+  function snapGet(v) {
+    try { var o = JSON.parse(localStorage.getItem(SNAP_PRE + v) || 'null'); return o && o.who === (auth.staff || '') && o.day === snapDay() ? o.d : null; } catch (e) { return null; }
+  }
+  function snapClear() {
+    try { Object.keys(localStorage).forEach(function (k) { if (k.indexOf(SNAP_PRE) === 0) localStorage.removeItem(k); }); } catch (e) {}
+  }
   function load(manual) {
     if (loading) return;
     if (!$('loginView').hidden) return;
     if (pendingCount() || (!manual && (isTyping() || Date.now() - touching < 2000))) return;
     loading = true; sync('busy', '불러오는 중');
+    if (!state.rows.length && !state.snapShown) {   // 처음 열 때: 저장본 먼저
+      var sn = snapGet('today');
+      if (sn && sn.rows && sn.rows.length) { state.snapShown = true; applyToday(sn, true, true); sync('busy', '저장본 표시 · 최신 불러오는 중'); }
+    }
     call('apiGetToday').then(function (d) {
-      state.rows = d.rows || []; state.choices = d.choices || {}; state.absentAfter = d.absentAfter || 10;
-      auth.admin = !!d.admin;
-      if (window.PIFADM) PIFADM.tabs();
-      var nsig = JSON.stringify(d.notice || {});
-      if (manual || nsig !== state.nsig) { state.nsig = nsig; state.notice = d.notice; if (!(document.activeElement && document.activeElement.id === 'noticeTxt')) noticeHTML(); }
-      state.now = d.now; state.today = d.today; state.date = d.date;
-      if (state.histDay !== d.today) { state.histDay = d.today; call('apiHistory').then(function (h) { state.hist = h || {}; render(); }).catch(function () { state.histDay = ''; });
-        call('apiLessonHist').then(function (h) { state.lhist = h || {}; render(); }).catch(function () {}); }
-      setHeader();
-      var sig = JSON.stringify(d.rows || []) + (auth.admin ? 'A' : '');
-      if (manual || sig !== state.sig) { state.sig = sig; render(); }   // 바뀐 게 없으면 화면을 건드리지 않음
+      applyToday(d, manual, false);
+      snapPut('today', d);
       sync('', d.now + ' 기준');
     }).catch(function (err) {
       if (!$('loginView').hidden) return;
       sync('err', '연결 안 됨');
       toast(errMsg(err), true);
     }).then(function () { loading = false; });
+  }
+  function applyToday(d, manual, fromSnap) {
+      state.rows = d.rows || []; state.choices = d.choices || {}; state.absentAfter = d.absentAfter || 10;
+      auth.admin = !!d.admin;
+      if (window.PIFADM) PIFADM.tabs();
+      var nsig = JSON.stringify(d.notice || {});
+      if (manual || nsig !== state.nsig) { state.nsig = nsig; state.notice = d.notice; if (!(document.activeElement && document.activeElement.id === 'noticeTxt')) noticeHTML(); }
+      state.now = d.now; state.today = d.today; state.date = d.date;
+      if (!fromSnap && state.histDay !== d.today) { state.histDay = d.today; call('apiHistory').then(function (h) { state.hist = h || {}; render(); }).catch(function () { state.histDay = ''; });
+        call('apiLessonHist').then(function (h) { state.lhist = h || {}; render(); }).catch(function () {}); }
+      setHeader();
+      var sig = JSON.stringify(d.rows || []) + (auth.admin ? 'A' : '');
+      if (manual || sig !== state.sig) { state.sig = sig; render(); }   // 바뀐 게 없으면 화면을 건드리지 않음
   }
   function isTyping() { var a = document.activeElement; return a && ((a.dataset && a.dataset.text) || a.id === 'noticeTxt'); }
   function errMsg(err) { return (err && (err.message || err)) + ''; }
@@ -2213,10 +2238,15 @@ table.t td.ck input, table.t th.ck input { width: 18px; height: 18px; }
     function reload() {
       var v = V.view; if (!FETCH[v]) return;
       if (pending) return;
-      if (!V[KEY[v]]) $('view-' + v).innerHTML = '<div class="loading">불러오는 중…</div>';
-      sync('busy', '불러오는 중');
+      var SNAPV = { lesson: 1, llog: 1, stu: 1 };
+      var sn = !V[KEY[v]] && SNAPV[v] ? snapGet(v) : null;
+      if (sn) { V[KEY[v]] = sn; draw(v); }
+      else if (!V[KEY[v]]) $('view-' + v).innerHTML = '<div class="loading">불러오는 중…</div>';
+      sync('busy', sn ? '저장본 표시 · 최신 불러오는 중' : '불러오는 중');
       call.apply(null, [FETCH[v]].concat(v === 'week' ? [V.wk || 0] : [])).then(function (d) {
+        if (pending) { V.loaded[v] = true; sync('', hhmm() + ' 기준'); return; }   // 저장본 보는 사이 고친 게 있으면 덮지 않음 (저장 응답이 최신으로 바꿈)
         V[KEY[v]] = d; V.loaded[v] = true; draw(v); sync('', hhmm() + ' 기준');
+        if (SNAPV[v]) snapPut(v, d);
       }).catch(function (err) {
         sync('err', '연결 안 됨'); toast(errMsg(err).replace(/^Error:\s*/, ''), true);
         if (!V[KEY[v]]) $('view-' + v).innerHTML = '<div class="loading">불러오지 못했습니다. 위의 ↻를 눌러 다시 시도해 주세요.</div>';
