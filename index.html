@@ -588,6 +588,9 @@ table.t td.ck input, table.t th.ck input { width: 18px; height: 18px; }
 .fpn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); font-size: 14px; font-weight: 600; }
 .fpn.ck { border-color: var(--warn); background: var(--warn-soft); }
 .fpn i { font-style: normal; font-weight: 500; font-size: 12px; color: var(--warn); }
+.outrow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.outt { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+.outt .txt { width: auto; min-height: 40px; padding: 6px 8px; }
 .ckbox { margin: 0 14px 12px; border: 1px solid var(--warn); background: var(--warn-soft); border-radius: 12px; padding: 10px 12px; display: grid; gap: 6px; }
 .ckh { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: baseline; font-size: 14px; }
 .ckr { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; font-size: 14px; padding: 6px 0; border-top: 1px dashed var(--line); }
@@ -729,7 +732,7 @@ table.t td.ck input, table.t th.ck input { width: 18px; height: 18px; }
       apiAckNotice: function () { notice.acks.push(auth.staff + ' ' + hm(0)); return JSON.parse(JSON.stringify(notice)); },
       apiUpdate: function (row, name, field, value) {
         var r = find(row);
-        if (field === 'out') r.out = value === 'now' ? hm(0) : ''; else r[field] = value;
+        if (field === 'out') r.out = value === 'now' ? hm(0) : /^\d{1,2}:\d{2}$/.test(value || '') ? value : ''; else r[field] = value;
         if (field === 'boss') r.bossAck = '';
         var msg = '';
         if (field === 'att' && value && r.nudge === 'wait') { r.nudge = ''; r.nudgeNote = ''; msg = '대기 중이던 미도착 알림을 취소했습니다.'; }
@@ -758,9 +761,9 @@ table.t td.ck input, table.t th.ck input { width: 18px; height: 18px; }
         var att = r.att === '출석' || r.att === '지각', text = '', st = '';
         if (att && lines.length) {
           text = '[PIF영어학원] 클리닉 성취도 안내\n\n안녕하세요, 학부모님.\n오늘 ' + nm + ' 학생의 클리닉 진행 결과를 안내드립니다.\n\n■ 진행 내역\n' + lines.join('\n') + '\n\n' +
-            (partial ? '■ 특이사항\n' + (r.special ? r.special + '(으)로' : '(사유 미입력)으로') + ' 인해 오늘 클리닉 과제를 일부 남겨둔 채 하원하게 되었습니다.\n\n미완성된 부분은 다음 정규 수업 전까지 차질 없이 마무리할 수 있도록 밀착 지도하겠습니다.'
+            (partial ? '■ 특이사항\n' + (r.special ? r.special + '(으)로' : '개인 사정으로') + ' 인해 오늘 클리닉 과제를 일부 남겨둔 채 하원하게 되었습니다.\n\n미완성된 부분은 다음 정규 수업 전까지 차질 없이 마무리할 수 있도록 밀착 지도하겠습니다.'
               : '오늘 배정된 클리닉 과제를 마무리하고 귀가했습니다. 정규 수업에서도 학습 흐름이 이어지도록 꼼꼼히 관리하겠습니다.') + '\n\n감사합니다.\nPIF영어학원 드림\n문의: 02-525-8584';
-          st = partial && !r.special ? '⚠️ 사유 미입력' : '대기';
+          st = '대기';   // 미완 사유는 선택 (비우면 '개인 사정')
         } else if (att) st = '⚠️ 과제 기록 없음';
         else if (r.att) st = '제외 (' + r.att + ')';
         return { time: t, reportTime: '22:30', report: { status: st, text: text }, absent: {
@@ -1060,8 +1063,10 @@ table.t td.ck input, table.t th.ck input { width: 18px; height: 18px; }
         '<input class="txt' + (need ? ' need' : '') + '" id="sp-' + r.row + '" data-text="special" value="' + esc(r.special) + '" placeholder="예: 시간 부족, 컨디션 난조" maxlength="300"></div>';
       h += '<div class="row"><label class="lab" for="me-' + r.row + '"><span>조교 멘트 (내부용)</span><span class="saved" data-saved="memo"></span></label>' +
         '<input class="txt" id="me-' + r.row + '" data-text="memo" value="' + esc(r.memo) + '" placeholder="원장님께 남길 말" maxlength="300"></div>';
-      if (r.out) h += '<div class="act"><button class="btn" type="button" disabled>하원 ' + esc(r.out) + '</button><button class="btn ghost" type="button" data-act="out-undo">하원 취소</button></div>';
-      else h += '<div class="act"><button class="btn primary" type="button" data-act="out">하원 처리 (지금 시각)</button></div>';
+      // 하원: 지금 시각 버튼 + 깜빡했을 때 시각 직접 정하기 (이미 하원했으면 시각 고치기)
+      if (r.out) h += '<div class="act outrow"><label class="outt"><span>하원</span><input class="txt" type="time" data-outtime value="' + esc(r.out) + '" aria-label="하원 시각 고치기"></label><button class="btn ghost" type="button" data-act="out-undo">하원 취소</button></div>';
+      else h += '<div class="act outrow"><button class="btn primary" type="button" data-act="out">하원 처리 (지금 시각)</button>' +
+        '<label class="outt"><span>다른 시각으로</span><input class="txt" type="time" data-outtime value="" aria-label="하원 시각 직접 정하기"></label></div>';
     }
     h += '<div class="foot"><span class="rep' + (/⚠️/.test(r.report) ? ' warn' : '') + '">' + (r.report ? '성취도: ' + esc(r.report) : '') + '</span>' +
       '<button class="msgbtn" type="button" data-act="msg">✉ 보낼 문자 보기</button></div>';
@@ -1456,6 +1461,14 @@ table.t td.ck input, table.t th.ck input { width: 18px; height: 18px; }
     if (f === 'att' && r.att && nv !== r.att && (r.out || r.wb || r.extra) &&
         !window.confirm(r.name + ' 학생의 등원을 "' + (nv || '빈칸') + '"(으)로 바꿀까요?\n오늘 체크·하원 기록이 있는 학생입니다.')) { el.value = r.att; return; }
     save(k, 'apiUpdate', [f, nv], function (x) { x[f] = nv; });
+  });
+  // 하원 시각 직접 정하기 / 고치기 (학생 창의 시각 칸)
+  document.addEventListener('change', function (ev) {
+    var el = ev.target; if (!el.hasAttribute || !el.hasAttribute('data-outtime')) return;
+    var host = el.closest('[data-k]'), k = host ? host.dataset.k : state.sheetK, r = k && findRow(k);
+    var v = (el.value || '').slice(0, 5);
+    if (!r || !v || v === r.out) return;
+    save(k, 'apiUpdate', ['out', v], function (x) { x.out = v; });
   });
   // 목록의 미완 사유: 칸을 벗어나거나 Enter → 저장
   function commitListText(input) {
