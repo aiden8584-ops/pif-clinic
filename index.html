@@ -1055,8 +1055,8 @@ table.t td.ck input, table.t th.ck input { width: 18px; height: 18px; }
         '<span class="k">실전문제</span>' + seg('extra', state.choices.extra || [], r.extra) +
         '<span class="k">재시</span>' + seg('retest', state.choices.retest || [], r.retest) +
         '</div><button class="toggle" type="button" data-act="video" aria-pressed="' + !!r.video + '"><span class="box">' + (r.video ? '✓' : '') + '</span>영상보강 완료</button></div>';
-      var need = needReason(r) && !r.special;
-      if (needReason(r) || r.special) h += '<div class="row"><label class="lab" for="sp-' + r.row + '"><span>미완 사유' + (needReason(r) ? ' (학부모 문자에 들어감)' : '') + '</span><span class="saved" data-saved="special"></span></label>' +
+      var need = false;   // 미완 사유는 선택 (10-21) — 비우면 학부모 문자에 '개인 사정'으로 들어감
+      if (needReason(r) || r.special) h += '<div class="row"><label class="lab" for="sp-' + r.row + '"><span>미완 사유' + (needReason(r) ? ' (선택 · 비우면 \'개인 사정\')' : '') + '</span><span class="saved" data-saved="special"></span></label>' +
         '<input class="txt' + (need ? ' need' : '') + '" id="sp-' + r.row + '" data-text="special" value="' + esc(r.special) + '" placeholder="예: 시간 부족, 컨디션 난조" maxlength="300"></div>';
       h += '<div class="row"><label class="lab" for="me-' + r.row + '"><span>조교 멘트 (내부용)</span><span class="saved" data-saved="memo"></span></label>' +
         '<input class="txt" id="me-' + r.row + '" data-text="memo" value="' + esc(r.memo) + '" placeholder="원장님께 남길 말" maxlength="300"></div>';
@@ -1311,7 +1311,6 @@ table.t td.ck input, table.t th.ck input { width: 18px; height: 18px; }
       if (s.k === 'cancel') return;
       if (s.k === 'late') a.push({ k: k, c: 'bad', i: '!', b: r.name + ' 미도착 ' + (n - t) + '분', m: r.nudge === 'wait' ? '알림 발송 대기 중 (1~6분 뒤)' : r.nudge === 'sent' ? '알림 보냄 · 연락 확인' : r.nudge === 'fail' ? '알림 발송 안 됨 · 카드 확인' : '아직 알림 안 보냄', r: r });
       if (r.boss && !r.bossAck) a.push({ k: k, c: 'warn', i: '✎', b: r.name + ' 원장 지시 미확인', m: '카드에서 [확인했어요]' });
-      if ((s.k === 'in' || s.k === 'out') && needReason(r) && !r.special) a.push({ k: k, c: 'warn', i: '?', b: r.name + ' 미완 사유 없음', m: '학부모 문자에 사유가 빠져요' });
       if (s.k === 'in' && t != null && n - t >= 150) a.push({ k: k, c: 'warn', i: '⏱', b: r.name + ' ' + Math.floor((n - t) / 60) + '시간 ' + ((n - t) % 60) + '분째 재실', m: '하원 처리를 잊지 않았나요?' });
     });
     return a.filter(function (x) { return x.c === 'bad'; }).concat(a.filter(function (x) { return x.c !== 'bad'; }));
@@ -1366,7 +1365,6 @@ table.t td.ck input, table.t th.ck input { width: 18px; height: 18px; }
   function listMemo(r) {
     var memo = [];
     if (r.boss && !r.bossAck) memo.push('원장 지시');
-    if (needReason(r) && !r.special) memo.push('미완 사유');
     return memo;
   }
   // 정렬 값 (null = 비어 있음 → 항상 맨 아래). 체크 항목은 문제 있는 학생이 먼저 오도록 순위를 매김
@@ -1430,7 +1428,7 @@ table.t td.ck input, table.t th.ck input { width: 18px; height: 18px; }
           '<td>' + lval('retest', r.retest, '통과', ['미실시']) + '</td>' +
           '<td>' + (r.video ? '<span class="lv ok">✓</span>' : '') + '</td>' +
           '<td class="mono">' + (r.out ? esc(r.out) : '—') + '</td>' +
-          '<td class="lspv">' + (r.special ? esc(r.special) : needReason(r) ? '<span class="st-warn">사유 필요</span>' : '') + '</td>' +
+          '<td class="lspv">' + (r.special ? esc(r.special) : '') + '</td>' +
           '<td style="color:var(--bad);font-size:13px">' + memo.join(' · ') + ((s.k === 'late' || s.k === 'start') ? ' ' + nudgeBtn(r) : '') + '</td></tr>';
       }).join('') + '</tbody></table></div>';
   }
@@ -1474,7 +1472,7 @@ table.t td.ck input, table.t th.ck input { width: 18px; height: 18px; }
   function listAct(b) {
     var tr = b.closest('tr[data-lk]'), k = tr && tr.dataset.lk, r = k && findRow(k); if (!r) return;
     if (b.dataset.lact === 'out') {
-      var empty = !r.wb && !r.extra && !r.retest && !r.video, noReason = needReason(r) && !r.special;
+      var empty = !r.wb && !r.extra && !r.retest && !r.video, noReason = false;   // 사유는 선택
       if ((empty || noReason) && b.dataset.sure !== '1') {
         b.dataset.sure = '1'; b.textContent = noReason ? '사유 없이?' : '기록 없이?';
         toast(noReason ? '미완 사유를 먼저 적어 주세요. 학부모 문자에 그대로 들어갑니다.' : '오늘 체크가 비어 있어요. 한 번 더 누르면 그대로 하원합니다.', true);
@@ -1743,8 +1741,8 @@ table.t td.ck input, table.t th.ck input { width: 18px; height: 18px; }
     if (act === 'lhist') { state.histOpen['L|' + k] = !state.histOpen['L|' + k]; renderCard(k); return; }
     if (act === 'video') { var nv2 = !r.video; save(k, 'apiUpdate', ['video', nv2], function (x) { x.video = nv2; }); return; }
     if (act === 'out') {
-      // 하원 전 확인: 오늘 한 것이 비었거나 미완 사유가 없으면 한 번 멈춤 (한 번 더 누르면 그대로 하원)
-      var empty = !r.wb && !r.extra && !r.retest && !r.video, noReason = needReason(r) && !r.special;
+      // 하원 전 확인: 오늘 한 것이 하나도 없을 때만 한 번 멈춤 (미완 사유는 선택이라 멈추지 않음, 10-21)
+      var empty = !r.wb && !r.extra && !r.retest && !r.video, noReason = false;
       if ((empty || noReason) && b.dataset.sure !== '1') {
         b.dataset.sure = '1'; b.textContent = noReason ? '사유 없이 하원하기' : '기록 없이 하원하기';
         b.classList.add('warn'); b.classList.remove('primary');
