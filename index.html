@@ -343,6 +343,13 @@ main .wrap { padding-block: 14px 40px; }
 .ltb td.ltodo { white-space: normal; min-width: 140px; max-width: 220px; font-size: 13px; }
 .ltb td.ltodo span { display: inline-block; background: var(--accent-soft); color: var(--ink); border-radius: 6px; padding: 2px 7px; overflow-wrap: anywhere; }
 .ltb tr.busy td { opacity: .6; }
+.ltb tr[data-open] { cursor: pointer; }
+.ltb tr[data-open]:hover td { background: var(--bg); }
+.ltb .lv { display: inline-block; padding: 3px 9px; border-radius: 7px; font-size: 13px; font-weight: 600; border: 1px solid var(--line); }
+.ltb .lv.ok { background: var(--ok-soft); border-color: var(--ok); color: var(--ok); }
+.ltb .lv.mid { background: var(--warn-soft); border-color: var(--warn); color: var(--warn); }
+.ltb .lv.bad { background: var(--bad-soft); border-color: var(--bad); color: var(--bad); }
+.ltb td.lspv { white-space: normal; min-width: 110px; max-width: 220px; font-size: 13px; }
 /* 옆으로 밀어도 학생 이름 칸은 왼쪽에 남김 */
 .ltb td:nth-child(2) { position: sticky; left: 0; z-index: 1; background: var(--surface); box-shadow: 1px 0 0 var(--line); }
 .ltb th:nth-child(2) { position: sticky; left: 0; z-index: 2; box-shadow: 1px 0 0 var(--line); }
@@ -1411,16 +1418,23 @@ table.t td.ck input, table.t th.ck input { width: 18px; height: 18px; }
           '<td class="lname"><b>' + esc(r.name) + '</b></td>' +
           '<td>' + (r.cls ? '<span class="chip" style="background:' + esc(r.color || '') + '">' + esc(r.cls) + '</span>' : '') + '</td><td><span class="pill ' + s.c + '">' + esc(s.t) + '</span></td>' +
           '<td class="ltodo">' + (r.todo ? '<span>' + esc(r.todo) + '</span>' : '') + '</td>' +
-          '<td>' + lsel('att', state.choices.att || [], r.att, dis(!cancel)) + '</td>' +
-          '<td>' + lsel('wb', state.choices.wb || [], r.wb, dis(inn), '완료', ['미지참']) + '</td>' +
-          '<td>' + lsel('extra', state.choices.extra || [], r.extra, dis(inn), '완료', ['받아감']) + '</td>' +
-          '<td>' + lsel('retest', state.choices.retest || [], r.retest, dis(inn), '통과', ['미실시']) + '</td>' +
-          '<td><label class="lchk"><input type="checkbox" data-lf="video"' + (r.video ? ' checked' : '') + dis(inn) + ' aria-label="영상보강 완료"></label></td>' +
-          '<td class="mono">' + (r.out ? esc(r.out) + ' <button class="lbtn" type="button" data-lact="out-undo"' + dis(true) + '>취소</button>'
-                                      : inn ? '<button class="lbtn pri" type="button" data-lact="out"' + dis(true) + '>하원</button>' : '—') + '</td>' +
-          '<td>' + (needReason(r) || r.special ? '<input class="txt lsp' + (needReason(r) && !r.special ? ' need' : '') + '" data-lt="special" value="' + esc(r.special) + '" placeholder="미완 사유" maxlength="300"' + dis(true) + '>' : '') + '</td>' +
+          // 목록은 보기 전용 (줄을 누르면 학생 창에서 입력) — 칸마다 저장하면 느려서 10-21에 바꿈
+          '<td>' + lval('att', r.att) + '</td>' +
+          '<td>' + lval('wb', r.wb, '완료', ['미지참']) + '</td>' +
+          '<td>' + lval('extra', r.extra, '완료', ['받아감']) + '</td>' +
+          '<td>' + lval('retest', r.retest, '통과', ['미실시']) + '</td>' +
+          '<td>' + (r.video ? '<span class="lv ok">✓</span>' : '') + '</td>' +
+          '<td class="mono">' + (r.out ? esc(r.out) : '—') + '</td>' +
+          '<td class="lspv">' + (r.special ? esc(r.special) : needReason(r) ? '<span class="st-warn">사유 필요</span>' : '') + '</td>' +
           '<td style="color:var(--bad);font-size:13px">' + memo.join(' · ') + ((s.k === 'late' || s.k === 'start') ? ' ' + nudgeBtn(r) : '') + '</td></tr>';
       }).join('') + '</tbody></table></div>';
+  }
+  // 목록 칸 보기 전용 값 (lsel과 같은 색: good = 초록, mid = 노랑, 그 밖 = 빨강)
+  function lval(field, cur, good, mid) {
+    if (!cur) return '<span class="st-mute">—</span>';
+    var tone = good ? (cur === good ? ' ok' : (mid || []).indexOf(cur) !== -1 ? ' mid' : ' bad')
+      : field === 'att' ? (cur === '출석' ? ' ok' : cur === '지각' ? ' mid' : ' bad') : '';
+    return '<span class="lv' + tone + '">' + esc(cur) + '</span>';
   }
   // 목록 칸 안 선택 상자 (good = 초록, mid = 노랑, 그 밖 = 빨강)
   function lsel(field, list, cur, extra, good, mid) {
