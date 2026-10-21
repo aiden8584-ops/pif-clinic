@@ -609,6 +609,8 @@ table.t td.ck input, table.t th.ck input { width: 18px; height: 18px; }
 .btn .ico, .nbtn .ico, .msgbtn .ico, .bulk .ico { margin-right: 5px; width: 17px; height: 17px; }
 
 /* ===== 10-22 화면 개편: 옆 창 · 홈 · 학생 찾기 ===== */
+.todo-ed { min-height: 52px; background: var(--accent-soft); border-color: transparent; }
+.todo-ed:focus { background: var(--surface); border-color: var(--accent); }
 .ptabs { display: flex; gap: 4px; padding: 10px 14px 0; background: var(--surface); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 2; }
 .ptabs button { border: 0; background: none; padding: 10px 14px; font-size: 14.5px; font-weight: 600; color: var(--muted); border-bottom: 2.5px solid transparent; margin-bottom: -1px; min-height: 44px; }
 .ptabs button[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); }
@@ -1232,7 +1234,10 @@ table.t td.ck input, table.t th.ck input { width: 18px; height: 18px; }
     }
     h += '<div class="body">' + histHTML(r) + lhistHTML(r);
     // 해야 할 일 (일정변경·수업과제에서 옴 — 등원 전에도 보여 줌)
-    if (r.todo) h += '<div class="row"><div class="lab"><span>해야 할 일</span></div><div class="todo">' + esc(r.todo) + '</div></div>';
+    // 원장은 고칠 수 있음 (칸을 벗어나면 저장). 조교는 보기만
+    if (auth.admin) h += '<div class="row"><label class="lab" for="td-' + r.row + '"><span>해야 할 일</span><span class="saved" data-saved="todo"></span></label>' +
+      '<textarea class="txt todo-ed" id="td-' + r.row + '" data-text="todo" maxlength="300" placeholder="조교에게 보일 할 일 (예: 워크북 Unit 7 · 어휘 재시험)">' + esc(r.todo) + '</textarea></div>';
+    else if (r.todo) h += '<div class="row"><div class="lab"><span>해야 할 일</span></div><div class="todo">' + esc(r.todo) + '</div></div>';
     // 등원
     h += '<div class="row"><div class="lab"><span>등원</span></div>' + seg('att', state.choices.att || [], r.att, 'att att5') + '</div>';
     // 미도착 알림
