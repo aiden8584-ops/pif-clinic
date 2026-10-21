@@ -584,6 +584,10 @@ tr.quit td { color: var(--muted); }
 .pbd .txt { width: auto; }
 table.t th.ck, table.t td.ck { width: 40px; text-align: center; cursor: default; }
 table.t td.ck input, table.t th.ck input { width: 18px; height: 18px; }
+.fpv { display: flex; flex-wrap: wrap; gap: 8px; }
+.fpn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); font-size: 14px; font-weight: 600; }
+.fpn.ck { border-color: var(--warn); background: var(--warn-soft); }
+.fpn i { font-style: normal; font-weight: 500; font-size: 12px; color: var(--warn); }
 .ckbox { margin: 0 14px 12px; border: 1px solid var(--warn); background: var(--warn-soft); border-radius: 12px; padding: 10px 12px; display: grid; gap: 6px; }
 .ckh { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: baseline; font-size: 14px; }
 .ckr { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; font-size: 14px; padding: 6px 0; border-top: 1px dashed var(--line); }
@@ -779,7 +783,7 @@ table.t td.ck input, table.t th.ck input { width: 18px; height: 18px; }
   // ---------- 입장(공용 비밀번호) ----------
   var AUTH_FNS = { apiGetToday: 1, apiUpdate: 1, apiNudge: 1, apiAckBoss: 1, apiSetNotice: 1, apiAckNotice: 1,
     apiMsgPreview: 1, apiHistory: 1, apiReportList: 1, apiReportExclude: 1, apiReportReason: 1, apiReportSendNow: 1, apiWeekly: 1, apiLessonGet: 1, apiLessonClass: 1, apiLessonStudent: 1, apiLessonAbsent: 1, apiLessonSendNow: 1, apiLessonBulk: 1, apiLessonClear: 1, apiLessonExclAll: 1, apiLessonSendOne: 1, apiLessonSendMany: 1, apiNoticeList: 1, apiNoticeSave: 1, apiLessonHist: 1, apiLessonLog: 1, apiLessonDay: 1, apiMatList: 1, apiMatUpload: 1, apiMatHide: 1, apiQList: 1, apiQAnswer: 1, apiQPhoto: 1, apiStuStat: 1, apiPushInfo: 1, apiPushSend: 1, apiVideoStat: 1,
-    apiReqList: 1, apiReqConnect: 1, apiReqDecide: 1, apiChangeAdd: 1, apiChangeDelete: 1, apiRosterGet: 1, apiRosterSave: 1, apiSendLog: 1, apiCheckDone: 1, apiRosterPauseBulk: 1, apiWelcomePreview: 1, apiWelcomeSend: 1, apiRuleGet: 1, apiSettingsSave: 1 };
+    apiReqList: 1, apiReqConnect: 1, apiReqDecide: 1, apiChangeAdd: 1, apiChangeDelete: 1, apiRosterGet: 1, apiRosterSave: 1, apiSendLog: 1, apiCheckDone: 1, apiLessonPreview: 1, apiRosterPauseBulk: 1, apiWelcomePreview: 1, apiWelcomeSend: 1, apiRuleGet: 1, apiSettingsSave: 1 };
   var auth = { token: '', staff: '', admin: false };
   try { auth.token = localStorage.getItem('pif_token') || ''; auth.staff = localStorage.getItem('pif_staff') || ''; } catch (e) {}
 
@@ -2043,6 +2047,12 @@ table.t td.ck input, table.t th.ck input { width: 18px; height: 18px; }
           items.forEach(function (it) { var r = RO.rows.filter(function (x) { return x.row === it.row; })[0]; r.pauseFrom = clear ? '' : (from || ''); r.pauseTo = clear ? '' : (to || ''); });
           return { data: clone(RO), msg: items.length + (clear ? '명 클리닉 중지를 풀었습니다. (데모)' : '명 클리닉 중지 저장 (데모)') };
         },
+        apiLessonPreview: function (ymd) {
+          if (ymd <= L.date) throw new Error('오늘 이후 날짜만 미리 볼 수 있어요.');
+          return { date: ymd, today: L.date, total: 5, classes: [
+            { cls: '서울2', start: '17:00', students: [{ name: '(예시) 김도윤', chk: [] }, { name: '(예시) 박서연', chk: [] }, { name: '(예시) 한소율', chk: [] }] },
+            { cls: '서초1', start: '19:00', students: [{ name: '(예시) 이하준', chk: ['워크북 미완 · 실전문제 미지참'] }, { name: '(예시) 서하은', chk: [] }] }] };
+        },
         apiSendLog: function () {
           var t = ymd(new Date());
           return { today: t, rows: [
@@ -2583,15 +2593,25 @@ table.t td.ck input, table.t th.ck input { width: 18px; height: 18px; }
     }
     // ---- 지난 날짜 보기 (보기 전용, 📝수업로그) ----
     V.ldate = ''; V.LD = null;
+    function lToday() {   // 오늘 (수업 없는 날은 수업피드백 날짜가 비어 있어 기기 날짜로)
+      if (V.L && V.L.date) return V.L.date;
+      var d = new Date(); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+    }
     function ldatePicker(cur) {
-      var today = (V.L && V.L.date) || (V.LD && V.LD.today) || '';
-      return '<span class="ldpick"><label class="lab" for="ldate"><span>날짜</span></label><input class="txt ldate" type="date" id="ldate" value="' + esc(cur || today) + '"' + (today ? ' max="' + esc(today) + '"' : '') + '>' +
+      var today = lToday();
+      var maxD = today ? (function () { var p = today.split('-'), d = new Date(+p[0], +p[1] - 1, +p[2] + 90); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); })() : '';
+      return '<span class="ldpick"><label class="lab" for="ldate"><span>날짜</span></label><input class="txt ldate" type="date" id="ldate" value="' + esc(cur || today) + '"' + (maxD ? ' max="' + esc(maxD) + '"' : '') + '>' +
         (V.ldate ? '<button class="btn" type="button" data-ldgo="">오늘로</button>' : '') + '</span>';
     }
     function lessonGoDate(ymd) {
-      var today = (V.L && V.L.date) || '';
+      var today = lToday();
       if (!ymd || ymd === today) { V.ldate = ''; V.LD = null; drawLesson(); return; }
-      V.ldate = ymd; V.LD = null; drawLesson();
+      V.ldate = ymd; V.LD = null; V.LF = null; drawLesson();
+      if (today && ymd > today) {   // 오늘 이후: 학생명단 기준 미리보기
+        call('apiLessonPreview', ymd).then(function (d) { if (V.ldate === ymd) { V.LF = d; drawLesson(); } })
+          .catch(function (err) { toast(errMsg(err).replace(/^Error:\s*/, ''), true); V.ldate = ''; drawLesson(); });
+        return;
+      }
       call('apiLessonDay', ymd).then(function (d) { if (V.ldate === ymd) { V.LD = d; drawLesson(); } })
         .catch(function (err) { toast(errMsg(err).replace(/^Error:\s*/, ''), true); V.ldate = ''; drawLesson(); });
     }
@@ -2620,6 +2640,23 @@ table.t td.ck input, table.t th.ck input { width: 18px; height: 18px; }
       });
       paint($('view-lesson'), h);
     }
+    // 오늘 이후 날짜: 학생명단(반·수업요일) 기준 미리보기 — 보기 전용
+    function drawLessonFuture() {
+      var F = V.LF, h = '';
+      h += '<div class="vhead"><span class="sub"><b>' + mdw(V.ldate) + ' 수업 미리보기</b> · 지금 학생명단(반·수업요일, 재원생) 기준이에요. 입력은 그날 수업피드백에서 해요.</span>' + ldatePicker(V.ldate) + '</div>';
+      if (!F) { paint($('view-lesson'), h + '<div class="loading">불러오는 중…</div>'); return; }
+      if (!F.classes.length) { paint($('view-lesson'), h + '<div class="empty">이 날짜(' + mdw(V.ldate) + ')가 수업 요일인 학생이 없어요.</div>'); return; }
+      h += '<div class="sect">반 ' + F.classes.length + '개 · 학생 ' + F.total + '명</div>';
+      F.classes.forEach(function (c) {
+        var nck = c.students.filter(function (s) { return s.chk.length; }).length;
+        h += '<section class="panel lcls lpast"><div class="lhead"><span class="cname">' + esc(c.cls) + '</span><span class="cstat">' + (c.start ? esc(c.start) + ' 시작 · ' : '') + '학생 ' + c.students.length + '명' + (nck ? ' · 🔎 검사 ' + nck + '명' : '') + '</span></div>' +
+          '<div class="lbody"><div class="fpv">' + c.students.map(function (s) {
+            return '<span class="fpn' + (s.chk.length ? ' ck' : '') + '"' + (s.chk.length ? ' title="' + esc(s.chk.join(' / ')) + '"' : '') + '>' + esc(s.name) + (s.chk.length ? ' <i>🔎 ' + esc(s.chk.join(' · ')) + '</i>' : '') + '</span>';
+          }).join('') + '</div></div></section>';
+      });
+      h += '<p class="note" style="text-align:center">학생명단에서 반·수업요일·상태를 바꾸면 미리보기도 바뀌어요. 🔎 = 지난 클리닉 미완 검사 대상 (지금 기준)</p>';
+      paint($('view-lesson'), h);
+    }
     // 날짜 고르기 · '오늘로' (다른 수업피드백 처리보다 먼저 받음)
     $('view-lesson').addEventListener('change', function (ev) {
       if (ev.target.id !== 'ldate') return;
@@ -2630,7 +2667,7 @@ table.t td.ck input, table.t th.ck input { width: 18px; height: 18px; }
       ev.stopPropagation(); lessonGoDate(b.dataset.ldgo);
     }, true);
     function drawLesson() {
-      if (V.ldate) { drawLessonPast(); return; }
+      if (V.ldate) { if (V.ldate > lToday()) drawLessonFuture(); else drawLessonPast(); return; }
       var L = V.L, ch = L.choices, h = '';
       var approved = L.classes.filter(function (c) { return c.approved; }).length;
       var waiting = L.students.filter(function (s) { return s.status === '대기'; }).length;
