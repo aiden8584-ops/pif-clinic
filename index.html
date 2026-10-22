@@ -597,6 +597,7 @@ table.t td.ck input, table.t th.ck input { width: 18px; height: 18px; }
 .ckh { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: baseline; font-size: 14px; }
 .ckr { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; font-size: 14px; padding: 6px 0; border-top: 1px dashed var(--line); }
 .ckr .ckit { color: var(--warn); font-weight: 600; }
+.ckr .cktodo { font-size: 13px; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 1px 7px; overflow-wrap: anywhere; }
 .ckr .ckdone { margin-left: auto; min-height: 34px; padding: 4px 12px; font-size: 13px; flex: 0 0 auto; }
 .ckchip { display: inline-block; margin-left: 4px; font-size: 11.5px; padding: 1px 6px; border-radius: 999px; background: var(--warn-soft); color: var(--warn); border: 1px solid var(--warn); font-weight: 600; vertical-align: 1px; }
 .chl .del { margin-left: auto; flex: 0 0 auto; min-height: 34px; padding: 4px 12px; font-size: 13px; }
@@ -2135,7 +2136,8 @@ table.t td.ck input, table.t th.ck input { width: 18px; height: 18px; }
           { row: 16, cls: '서초1', name: '(예시) 이하준', att: '출석', hw: '미완료', score: '85', retest: '', atti: '보완', cmt: '휴대폰 사용 주의 줌', excl: false },
           { row: 17, cls: '서초1', name: '(예시) 서하은', att: '결석', hw: '', score: '', retest: '', atti: '', cmt: '', excl: false }
         ].map(function (s) { s.absent = ''; s.absentNote = ''; s.pass = ''; s.status = ''; s.preview = '';
-          s.chk = s.name === '(예시) 이하준' ? [{ row: 5, cdate: ymd(new Date(Date.now() - 5 * 864e5)), next: ymd(new Date()), late: false, items: '워크북 미완 · 실전문제 미지참', special: '시간 부족', todo: '' }] : [];
+          s.chk = s.name === '(예시) 이하준' ? [{ row: 5, cdate: ymd(new Date(Date.now() - 5 * 864e5)), next: ymd(new Date()), late: false, items: '워크북 미완 · 실전문제 미지참', special: '시간 부족', todo: '' }]
+            : s.name === '(예시) 박서연' ? [{ row: 6, cdate: ymd(new Date(Date.now() - 2 * 864e5)), next: ymd(new Date()), late: false, items: '클리닉 사유결석', special: '사유결석 · 병원', todo: '워크북 Unit 7 · 어휘 재시험' }] : [];
           return s; })
       };
       function rebuild() {
@@ -3178,11 +3180,12 @@ table.t td.ck input, table.t th.ck input { width: 18px; height: 18px; }
     function chkHTML(mine) {
       var list = mine.filter(function (s) { return s.chk && s.chk.length; });
       if (!list.length) return '';
-      return '<div class="ckbox"><div class="ckh">🔎 클리닉 미완 검사 <b>' + list.length + '명</b><span class="st-mute">지난 클리닉에서 못 끝낸 것 · 검사 후 "검사 완료"</span></div>' +
+      return '<div class="ckbox"><div class="ckh">🔎 클리닉 미완 검사 <b>' + list.length + '명</b><span class="st-mute">지난 클리닉에서 못 끝냈거나 결석한 것 · 검사 후 "검사 완료"</span></div>' +
         list.map(function (s) {
           return s.chk.map(function (c) {
             return '<div class="ckr" data-ckrow="' + c.row + '" data-ckname="' + esc(s.name) + '" data-ckdate="' + esc(c.cdate) + '"><b>' + esc(s.name) + '</b>' +
               '<span class="ckit">' + esc(c.items || '미완') + '</span>' +
+              (c.todo ? '<span class="cktodo">할 일: ' + esc(c.todo) + '</span>' : '') +
               '<span class="st-mute">' + (c.cdate ? esc(mdw(c.cdate)) + ' 클리닉' : '') + (c.late ? ' · <span class="st-warn">밀림</span>' : '') + (c.special ? ' · ' + esc(c.special) : '') + '</span>' +
               '<button class="btn ckdone" type="button" data-ckdone>검사 완료</button></div>';
           }).join('');
