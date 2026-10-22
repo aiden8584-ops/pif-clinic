@@ -582,6 +582,7 @@ tr.quit td { color: var(--muted); }
 .pbh { display: grid; gap: 2px; }
 .pbr { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .pbr .btn { flex: 0 0 auto; }
+.pbl { font-size: 13px; font-weight: 700; min-width: 72px; }
 .pbd { display: flex; align-items: center; gap: 6px; font-size: 14px; }
 .pbd .txt { width: auto; }
 table.t th.ck, table.t td.ck { width: 40px; text-align: center; cursor: default; }
@@ -990,7 +991,7 @@ table.t td.ck input, table.t th.ck input { width: 18px; height: 18px; }
   // ---------- 입장(공용 비밀번호) ----------
   var AUTH_FNS = { apiGetToday: 1, apiUpdate: 1, apiNudge: 1, apiAckBoss: 1, apiSetNotice: 1, apiAckNotice: 1,
     apiMsgPreview: 1, apiHistory: 1, apiReportList: 1, apiReportExclude: 1, apiReportReason: 1, apiReportSendNow: 1, apiWeekly: 1, apiLessonGet: 1, apiLessonClass: 1, apiLessonStudent: 1, apiLessonAbsent: 1, apiLessonSendNow: 1, apiLessonBulk: 1, apiLessonClear: 1, apiLessonExclAll: 1, apiLessonSendOne: 1, apiLessonSendMany: 1, apiNoticeList: 1, apiNoticeSave: 1, apiLessonHist: 1, apiLessonLog: 1, apiLessonDay: 1, apiMatList: 1, apiMatUpload: 1, apiMatHide: 1, apiQList: 1, apiQAnswer: 1, apiQPhoto: 1, apiStuStat: 1, apiPushInfo: 1, apiPushSend: 1, apiVideoStat: 1, apiStudentProfile: 1,
-    apiReqList: 1, apiReqConnect: 1, apiReqDecide: 1, apiChangeAdd: 1, apiChangeDelete: 1, apiRosterGet: 1, apiRosterSave: 1, apiSendLog: 1, apiCheckDone: 1, apiLessonPreview: 1, apiRosterPauseBulk: 1, apiWelcomePreview: 1, apiWelcomeSend: 1, apiRuleGet: 1, apiSettingsSave: 1 };
+    apiReqList: 1, apiReqConnect: 1, apiReqDecide: 1, apiChangeAdd: 1, apiChangeDelete: 1, apiRosterGet: 1, apiRosterSave: 1, apiSendLog: 1, apiCheckDone: 1, apiLessonPreview: 1, apiRosterPauseBulk: 1, apiRosterStopBulk: 1, apiWelcomePreview: 1, apiWelcomeSend: 1, apiRuleGet: 1, apiSettingsSave: 1 };
   var auth = { token: '', staff: '', admin: false };
   try { auth.token = localStorage.getItem('pif_token') || ''; auth.staff = localStorage.getItem('pif_staff') || ''; } catch (e) {}
 
@@ -2328,6 +2329,11 @@ table.t td.ck input, table.t th.ck input { width: 18px; height: 18px; }
           return { results: res, msg: w.disp + ' 안내문 발송 완료 (데모)', data: clone(RO) };
         },
         apiCheckDone: function (row, name) { L.students.forEach(function (s) { if (s.name === name) s.chk = s.chk.filter(function (c) { return c.row !== row; }); }); return { data: clone(L), msg: name + ' 검사 완료로 표시했습니다. (데모)' }; },
+        apiRosterStopBulk: function (items, on) {
+          if (!items.length) throw new Error('학생을 골라 주세요.');
+          items.forEach(function (it) { RO.rows.filter(function (x) { return x.row === it.row; })[0].stop = !!on; });
+          return { data: clone(RO), msg: items.length + '명 ' + (on ? '알림중지' : '알림중지 해제') + ' (데모)' };
+        },
         apiRosterPauseBulk: function (items, from, to, clear) {
           if (!items.length) throw new Error('학생을 골라 주세요.');
           if (!clear && !from && !to) throw new Error('시작이나 끝 날짜를 하나 이상 골라 주세요.');
@@ -3533,7 +3539,6 @@ table.t td.ck input, table.t th.ck input { width: 18px; height: 18px; }
       h += '<div class="toolbar"><input class="txt" type="search" id="rq" data-fk="rq" placeholder="이름·번호 찾기" value="' + esc(V.rq) + '">' +
 
         '<select class="txt" id="rst" aria-label="상태">' + opts(ch.status, V.rst, '재원·휴원 (퇴원 제외)') + '</select>' +
-        '<button class="btn" type="button" id="rbulk" aria-pressed="' + !!V.rbulk + '" style="flex:0 0 auto">⏸ 여러 명 클리닉 중지</button>' +
         '<button class="btn primary" type="button" id="radd" style="flex:0 0 auto">학생 추가</button></div>';
       // 반 버튼 (여러 개 고르기) — 상태·찾기 조건에 맞는 학생 수
       var rbase = RO.rows.filter(function (r) { return (V.rst ? r.status === V.rst : r.status !== '퇴원'); });
@@ -3547,16 +3552,16 @@ table.t td.ck input, table.t th.ck input { width: 18px; height: 18px; }
       if (rcl.length > 1) h += '<div class="filters" style="margin-bottom:12px"><button class="f" type="button" data-rc="" aria-pressed="' + !Object.keys(V.rclsSel).length + '">전체 <b>' + rbase.length + '</b></button><span class="fsep" aria-hidden="true"></span>' +
         rcl.map(function (c) { return '<button class="f fc" type="button" data-rc="' + esc(c) + '" aria-pressed="' + !!V.rclsSel[c] + '">' + esc(rLabel(c)) + ' <b>' + rbase.filter(function (r) { return rKey(r) === c; }).length + '</b></button>'; }).join('') + '</div>';
       if (V.edit) h += formHTML(V.edit, ch);
-      if (V.rbulk) h += pbulkHTML(list);
+      if (Object.keys(V.rsel).length) h += pbulkHTML(list);   // 체크하면 일괄 처리 막대
       h += '<div class="sect">' + list.length + '명</div>';
       var o = V.rsort;
-      var allOn = V.rbulk && list.length && list.every(function (r) { return V.rsel[r.row]; });
-      h += '<div class="panel tablewrap"><table class="t"><thead><tr>' + (V.rbulk ? '<th class="ck"><input type="checkbox" data-rselall' + (allOn ? ' checked' : '') + ' aria-label="보이는 학생 모두 선택"></th>' : '') + RCOLS.map(function (c) {
+      var allOn = list.length && list.every(function (r) { return V.rsel[r.row]; });
+      h += '<div class="panel tablewrap"><table class="t"><thead><tr>' + (true ? '<th class="ck"><input type="checkbox" data-rselall' + (allOn ? ' checked' : '') + ' aria-label="보이는 학생 모두 선택"></th>' : '') + RCOLS.map(function (c) {
           var on = o && o.k === c[0];
           return '<th class="srt' + (on ? ' on' : '') + '" data-rsort="' + c[0] + '" role="button" tabindex="0" aria-sort="' + (on ? (o.d === 1 ? 'ascending' : 'descending') : 'none') + '">' + c[1] + '<i>' + (on ? (o.d === 1 ? '▲' : '▼') : '') + '</i></th>';
         }).join('') + '</tr></thead><tbody>' +
         rsorted(list).map(function (r) {
-          return '<tr class="click' + (r.status === '퇴원' ? ' quit' : '') + '" data-row="' + r.row + '">' + (V.rbulk ? '<td class="ck"><input type="checkbox" data-rsel="' + r.row + '"' + (V.rsel[r.row] ? ' checked' : '') + ' aria-label="' + esc(r.disp) + ' 선택"></td>' : '') + '<td><b>' + esc(r.disp) + '</b></td><td>' + esc(r.cls) + '</td><td>' + esc(r.school) + '</td><td>' + esc(r.lessonDay) + '</td>' +
+          return '<tr class="click' + (r.status === '퇴원' ? ' quit' : '') + '" data-row="' + r.row + '">' + (true ? '<td class="ck"><input type="checkbox" data-rsel="' + r.row + '"' + (V.rsel[r.row] ? ' checked' : '') + ' aria-label="' + esc(r.disp) + ' 선택"></td>' : '') + '<td><b>' + esc(r.disp) + '</b></td><td>' + esc(r.cls) + '</td><td>' + esc(r.school) + '</td><td>' + esc(r.lessonDay) + '</td>' +
             '<td class="num">' + esc(r.clinicDay) + ' ' + esc(r.clinicTime) + '</td><td class="num">' + esc(r.sunTime) + '</td><td class="num">' + esc(phone(r.phone)) + '</td><td class="num">' + esc(phone(r.parent)) + '</td>' +
             '<td><span class="pill ' + (r.status === '재원' ? 's-in' : r.status === '휴원' ? 's-late' : 's-out') + '">' + esc(r.status) + '</span>' + (r.stop ? ' <span class="chip kind">알림중지</span>' : '') + (r.remindOff && r.remindOff >= todayYMD() ? ' <span class="chip kind">예정문자 중지 ~' + esc(r.remindOff.slice(5).replace('-', '/')) + '</span>' : '') + (r.welcomeAt ? ' <span class="chip kind">안내문 ✓' + esc(r.welcomeAt.slice(5).replace('-', '/')) + '</span>' : '') + pauseChip(r) + '</td><td class="memo">' + esc(r.memo) + '</td></tr>';
         }).join('') + '</tbody></table></div>';
@@ -3572,15 +3577,17 @@ table.t td.ck input, table.t th.ck input { width: 18px; height: 18px; }
     function pbulkHTML(list) {
       var sel = V.RO.rows.filter(function (r) { return V.rsel[r.row]; }), n = sel.length;
       var vis = list.filter(function (r) { return V.rsel[r.row]; }).length;
-      return '<div class="panel pbulk"><div class="pbh"><b>⏸ 여러 명 클리닉 중지</b><span class="st-mute">위의 반 버튼·찾기로 거른 뒤 체크 → 날짜 → 적용. 그 기간에는 오늘 클리닉 명단·예정문자에서 빠져요 (수업피드백은 그대로)</span></div>' +
+      return '<div class="panel pbulk"><div class="pbh"><b>✓ 선택한 학생 한 번에</b><span class="st-mute">위의 반 버튼·찾기로 거른 뒤 체크 → 아래에서 고르기 (두 번 눌러 적용)</span></div>' +
         '<div class="pbr"><span>선택 <b>' + n + '명</b>' + (n !== vis ? ' <span class="st-mute">(지금 안 보이는 ' + (n - vis) + '명 포함)</span>' : '') + '</span>' +
         '<button class="btn" type="button" data-pb="all">보이는 ' + list.length + '명 모두 선택</button><button class="btn ghost" type="button" data-pb="none"' + (n ? '' : ' disabled') + '>선택 해제</button></div>' +
-        '<div class="pbr"><label class="pbd"><span>시작</span><input class="txt" type="date" id="pbFrom" value="' + esc(V.pbFrom) + '"></label>' +
+        '<div class="pbr"><span class="pbl">알림 문자</span><button class="btn" type="button" data-pb="stopon">🔕 알림중지</button><button class="btn" type="button" data-pb="stopoff">🔔 알림중지 해제</button>' +
+        '<span class="st-mute">알림중지 = 이 학생에게 어떤 문자도 안 나감</span></div>' +
+        '<div class="pbr"><span class="pbl">클리닉 중지</span><label class="pbd"><span>시작</span><input class="txt" type="date" id="pbFrom" value="' + esc(V.pbFrom) + '"></label>' +
         '<label class="pbd"><span>끝</span><input class="txt" type="date" id="pbTo" value="' + esc(V.pbTo) + '"></label>' +
         '<span class="st-mute">시작 비우면 지금부터 · 끝 비우면 계속</span></div>' +
         '<div class="pbr"><button class="btn primary" type="button" data-pb="apply"' + (n ? '' : ' disabled') + '>선택한 ' + n + '명 클리닉 중지</button>' +
         '<button class="btn" type="button" data-pb="clear"' + (n ? '' : ' disabled') + '>선택한 ' + n + '명 중지 풀기</button>' +
-        '<button class="btn ghost" type="button" data-pb="close">닫기</button></div></div>';
+        '<button class="btn ghost" type="button" data-pb="close">선택 해제</button></div></div>';
     }
     function rVisible() {
       var q = V.rq.trim();
@@ -3727,6 +3734,13 @@ table.t td.ck input, table.t th.ck input { width: 18px; height: 18px; }
         if (a === 'all') { rVisible().forEach(function (r) { V.rsel[r.row] = 1; }); drawRoster(); return; }
         var items = V.RO.rows.filter(function (r) { return V.rsel[r.row]; }).map(function (r) { return { row: r.row, disp: r.disp }; });
         if (!items.length) return;
+        if (a === 'stopon' || a === 'stopoff') {
+          var on = a === 'stopon';
+          if (!sure(pb, items.length + '명 ' + (on ? '알림중지' : '알림중지 해제') + ' — 한 번 더', 4000)) return;
+          pb.disabled = true;
+          run('apiRosterStopBulk', [items, on], function (res) { if (!res) return; V.RO = res.data; V.rsel = {}; drawRoster(); toast(res.msg); });
+          return;
+        }
         if (a === 'apply' && !V.pbFrom && !V.pbTo) { toast('시작이나 끝 날짜를 골라 주세요.', true); return; }
         if (!sure(pb, a === 'clear' ? items.length + '명 중지 풀기 — 한 번 더' : items.length + '명 중지 — 한 번 더', 4000)) return;
         pb.disabled = true;
