@@ -129,6 +129,8 @@ main .wrap { padding-block: 14px 40px; }
 .seg.att button[data-v="출석"][aria-pressed="true"] { background: var(--ok); border-color: var(--ok); color: var(--surface); }
 .seg.att button[data-v="지각"][aria-pressed="true"] { background: var(--warn); border-color: var(--warn); color: var(--surface); }
 .seg.att button[data-v$="결석"][aria-pressed="true"] { background: var(--bad); border-color: var(--bad); color: var(--surface); }
+.seg.att3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.seg.att3 button { min-width: 0; }
 .seg.att5 { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); }
 .seg.att5 button { grid-column: span 3; min-width: 0; }
 .seg.att5 .minor { grid-column: span 2; min-height: 36px; padding: 6px 2px; font-size: 13px; letter-spacing: -0.02em; color: var(--muted); }
@@ -900,9 +902,9 @@ table.t td.ck input, table.t th.ck input { width: 18px; height: 18px; }
   var demo = (function () {
     var hm = function (offsetMin) { var d = new Date(Date.now() + offsetMin * 60000); return pad(d.getHours()) + ':' + pad(d.getMinutes()); };
     var rows = [
-      { name: '(예시) 김서윤', cls: '서울1', school: '서울고', color: '#DCEEFD', time: hm(-70), kind: '정규', att: '출석', room: '1자', todo: '워크북 Unit 7 · 어휘 재시험', wb: '완료', extra: '미완', retest: '통과', video: false, out: '', special: '', memo: '', report: '⚠️ 사유 미입력' },
+      { name: '(예시) 김서윤', cls: '서울1', school: '서울고', color: '#DCEEFD', time: hm(-70), kind: '정규', att: '출석', room: '1자습실', todo: '워크북 Unit 7 · 어휘 재시험', wb: '완료', extra: '미완', retest: '통과', video: false, out: '', special: '', memo: '', report: '⚠️ 사유 미입력' },
       { name: '(예시) 박도윤', cls: '서초1', school: '서초고', color: '#EFE3F8', time: hm(-25), kind: '정규', att: '', room: '', todo: '실전문제 3세트', wb: '', extra: '', retest: '', video: false, out: '', special: '', memo: '', report: '' },
-      { name: '(예시) 이하준', cls: '고2정시반', school: '상문고', color: '#FFCB94', time: hm(-40), kind: '변경', att: '지각', room: '2자', todo: '', wb: '완료', extra: '완료', retest: '', video: true, out: hm(-3), special: '', memo: '집중 좋았음', report: '대기' },
+      { name: '(예시) 이하준', cls: '고2정시반', school: '상문고', color: '#FFCB94', time: hm(-40), kind: '변경', att: '지각', room: '2자습실', todo: '', wb: '완료', extra: '완료', retest: '', video: true, out: hm(-3), special: '', memo: '집중 좋았음', report: '대기' },
       { name: '(예시) 최지우', cls: '상문1', school: '상문고', color: '#FFEBD6', time: hm(20), kind: '정규', att: '', room: '', todo: '수업 과제: 독해 12~15번', wb: '', extra: '', retest: '', video: false, out: '', special: '', memo: '', report: '' },
       { name: '(예시) 정민재', cls: '서울2', school: '서울고', color: '#A9D4F7', time: hm(50), kind: '추가등원', att: '', room: '', todo: '', wb: '', extra: '', retest: '', video: false, out: '', special: '', memo: '', report: '' },
       { name: '(예시) 한유나', cls: '서초1', school: '서초고', color: '#EFE3F8', time: hm(30), kind: '취소(일정변경)', att: '', room: '', todo: '', wb: '', extra: '', retest: '', video: false, out: '', special: '', memo: '', report: '' }
@@ -911,7 +913,7 @@ table.t td.ck input, table.t th.ck input { width: 18px; height: 18px; }
     rows[0].boss = '단어 재시험 80점 넘을 때까지 보내지 마세요.';
     rows[3].boss = '지난주 워크북 미완 → 오늘 꼭 확인';
     var notice = { text: '오늘 18시 이후 복도 청소 있어요. 하원 학생 짐 꼭 챙기게 해주세요.', acks: [] };
-    var choices = { att: ['출석', '지각', '사유결석', '무단결석', '자료만수령'], room: ['1자', '1-1자', '2자'], wb: ['완료', '미완', '미지참'], extra: ['완료', '미완', '받아감'], retest: ['통과', '재시', '미실시'] };
+    var choices = { att: ['출석', '사유결석', '무단결석'], room: ['1자습실', '1강의실', '2자습실'], wb: ['완료', '미완', '미지참'], extra: ['완료', '미완', '받아감'], retest: ['통과', '재시', '미실시'] };
     function find(row) { return rows.filter(function (r) { return r.row === row; })[0]; }
     return {
       apiLoginInfo: function () { return { staff: ['이서영', '손영민', '원장'], ready: true }; },
@@ -1205,7 +1207,7 @@ table.t td.ck input, table.t th.ck input { width: 18px; height: 18px; }
 
   function seg(field, list, cur, cls) {
     return '<div class="seg ' + (cls || '') + '" data-field="' + field + '">' + list.map(function (v, i) {
-      var minor = field === 'att' && i >= 2;
+      var minor = field === 'att' && list.length > 3 && i >= 2;
       return '<button type="button" data-v="' + esc(v) + '" class="' + (minor ? 'minor' : '') + '" aria-pressed="' + (cur === v) + '">' + esc(v) + '</button>';
     }).join('') + '</div>';
   }
@@ -1239,7 +1241,9 @@ table.t td.ck input, table.t th.ck input { width: 18px; height: 18px; }
       '<textarea class="txt todo-ed" id="td-' + r.row + '" data-text="todo" maxlength="300" placeholder="조교에게 보일 할 일 (예: 워크북 Unit 7 · 어휘 재시험)">' + esc(r.todo) + '</textarea></div>';
     else if (r.todo) h += '<div class="row"><div class="lab"><span>해야 할 일</span></div><div class="todo">' + esc(r.todo) + '</div></div>';
     // 등원
-    h += '<div class="row"><div class="lab"><span>등원</span></div>' + seg('att', state.choices.att || [], r.att, 'att att5') + '</div>';
+    h += '<div class="row"><div class="lab"><span>등원</span></div>' + seg('att', state.choices.att || [], r.att, 'att' + ((state.choices.att || []).length > 3 ? ' att5' : ' att3')) + '</div>';
+    // 자습실 (출석한 학생만, 10-22)
+    if (r.att === '출석' || r.att === '지각') h += '<div class="row"><div class="lab"><span>자습실</span></div>' + seg('room', state.choices.room || [], r.room, 'room') + '</div>';
     // 미도착 알림
     if (!r.att) {
       var t = mins(r.time), before = t != null && nowMin() < t;
@@ -1660,7 +1664,7 @@ table.t td.ck input, table.t th.ck input { width: 18px; height: 18px; }
           '<td>' + (r.cls ? '<span class="chip" style="background:' + esc(r.color || '') + '">' + esc(r.cls) + '</span>' : '') + '</td><td><span class="pill ' + s.c + '">' + esc(s.t) + '</span></td>' +
           '<td class="ltodo">' + (r.todo ? '<span>' + esc(r.todo) + '</span>' : '') + '</td>' +
           // 목록은 보기 전용 (줄을 누르면 학생 창에서 입력) — 칸마다 저장하면 느려서 10-21에 바꿈
-          '<td>' + lval('att', r.att) + '</td>' +
+          '<td>' + lval('att', r.att) + (r.room ? ' <span class="chip kind">' + esc(r.room) + '</span>' : '') + '</td>' +
           '<td class="lchk2">' + chkHTML(r) + '</td>' +
           '<td class="mono">' + (r.out ? esc(r.out) : '—') + '</td>' +
           '<td class="lspv">' + (r.special ? esc(r.special) : '') + '</td>' +
