@@ -428,6 +428,9 @@ main .wrap { padding-block: 14px 40px; }
 .mtabs button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
 .mwhen { font-size: 13px; color: var(--muted); }
 .mwhen.warn { color: var(--warn); font-weight: 600; }
+.msend { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 12px; }
+.footb { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+.msgbtn.send { background: var(--accent); color: #fff; border-color: var(--accent); }
 .bubble { background: var(--accent-soft); border-radius: 4px 16px 16px 16px; padding: 12px 14px; font-size: 14.5px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
 .mempty { padding: 24px 8px; text-align: center; color: var(--muted); font-size: 14px; }
 
@@ -964,6 +967,7 @@ table.t td.ck input, table.t th.ck input { width: 18px; height: 18px; }
         if (r.video) lines.push('- 영상보강: 완료');
         if (r.retest) lines.push('- 재시험: ' + L[r.retest]);
         var att = r.att === '출석' || r.att === '지각', text = '', st = '';
+        if (/^발송완료/.test(r.repSent || '')) return { time: t, reportTime: '22:30', report: { status: r.repSent, text: '(보낸 문자)' }, absent: { student: '', parent: '' } };
         if (att && lines.length) {
           text = '[PIF영어학원] 클리닉 성취도 안내\n\n안녕하세요, 학부모님.\n오늘 ' + nm + ' 학생의 클리닉 진행 결과를 안내드립니다.\n\n■ 진행 내역\n' + lines.join('\n') + '\n\n' +
             (partial ? '■ 특이사항\n' + (r.special ? r.special + '(으)로' : '개인 사정으로') + ' 인해 오늘 클리닉 과제를 일부 남겨둔 채 하원하게 되었습니다.\n\n미완성된 부분은 다음 정규 수업 전까지 차질 없이 마무리할 수 있도록 밀착 지도하겠습니다.'
@@ -974,6 +978,14 @@ table.t td.ck input, table.t th.ck input { width: 18px; height: 18px; }
         return { time: t, reportTime: '22:30', report: { status: st, text: text }, absent: {
           student: '[PIF영어학원 미도착 안내]\n' + nm + ' 학생, 오늘 ' + t + ' 클리닉 시간이 지났지만 아직 등원이 확인되지 않았습니다.\n\n이동 중이라면 조심히 오고, 늦거나 오기 어려운 사정이 있으면 지금 바로 학원으로 연락해 주세요.\n사전 연락 없는 결석은 무단 결석으로 처리되며, 해당 수업 자료가 배부되지 않고 영상 보강도 제공되지 않습니다.\n\n☎ 02-525-8584',
           parent: '[PIF영어학원 미도착 안내]\n안녕하세요, 학부모님.\n' + nm + ' 학생이 오늘 ' + t + ' 클리닉에 아직 등원하지 않아 안내드립니다.\n\n학원 수강 규정에 따라 사전 연락 없는 결석은 무단 결석으로 처리되며, 해당 수업 자료 배부와 영상 보강이 제공되지 않습니다.\n학생의 등원 여부를 확인해 주시고, 사정이 있으시면 학원으로 연락 부탁드립니다.\n\n감사합니다.\nPIF영어학원 드림\n☎ 02-525-8584' } };
+      },
+      apiReportSendOne: function (row) {
+        var r = find(row);
+        if (/^발송완료/.test(r.repSent || '')) throw new Error('이미 보낸 학생입니다 (' + r.repSent + ').');
+        var st = demo.apiMsgPreview(row).report.status;
+        if (st !== '대기') throw new Error('보낼 수 없어요: ' + (st || '출석과 과제를 먼저 입력해 주세요.'));
+        r.repSent = r.report = '발송완료 ' + hm(0);
+        return { row: JSON.parse(JSON.stringify(r)), msg: r.name + ' 학부모님께 성취도 문자를 보냈습니다 (데모 — 실제로는 안 나감).' };
       },
       apiNudge: function (row, name, on, who) {
         var r = find(row), W = { student: '학생', parent: '학부모', both: '학생·학부모' };
@@ -989,7 +1001,7 @@ table.t td.ck input, table.t th.ck input { width: 18px; height: 18px; }
   })();
 
   // ---------- 입장(공용 비밀번호) ----------
-  var AUTH_FNS = { apiGetToday: 1, apiUpdate: 1, apiNudge: 1, apiAckBoss: 1, apiSetNotice: 1, apiAckNotice: 1,
+  var AUTH_FNS = { apiGetToday: 1, apiUpdate: 1, apiNudge: 1, apiReportSendOne: 1, apiAckBoss: 1, apiSetNotice: 1, apiAckNotice: 1,
     apiMsgPreview: 1, apiHistory: 1, apiReportList: 1, apiReportExclude: 1, apiReportReason: 1, apiReportSendNow: 1, apiWeekly: 1, apiLessonGet: 1, apiLessonClass: 1, apiLessonStudent: 1, apiLessonAbsent: 1, apiLessonSendNow: 1, apiLessonBulk: 1, apiLessonClear: 1, apiLessonExclAll: 1, apiLessonSendOne: 1, apiLessonSendMany: 1, apiNoticeList: 1, apiNoticeSave: 1, apiLessonHist: 1, apiLessonLog: 1, apiLessonDay: 1, apiMatList: 1, apiMatUpload: 1, apiMatHide: 1, apiQList: 1, apiQAnswer: 1, apiQPhoto: 1, apiStuStat: 1, apiPushInfo: 1, apiPushSend: 1, apiVideoStat: 1, apiStudentProfile: 1,
     apiReqList: 1, apiReqConnect: 1, apiReqDecide: 1, apiChangeAdd: 1, apiChangeDelete: 1, apiRosterGet: 1, apiRosterSave: 1, apiSendLog: 1, apiCheckDone: 1, apiLessonPreview: 1, apiRosterPauseBulk: 1, apiRosterStopBulk: 1, apiWelcomePreview: 1, apiWelcomeSend: 1, apiRuleGet: 1, apiSettingsSave: 1 };
   var auth = { token: '', staff: '', admin: false };
@@ -1279,7 +1291,8 @@ table.t td.ck input, table.t th.ck input { width: 18px; height: 18px; }
         '<label class="outt"><span>다른 시각으로</span><input class="txt" type="time" data-outtime value="" aria-label="하원 시각 직접 정하기"></label></div>';
     }
     h += '<div class="foot"><span class="rep' + (/⚠️/.test(r.report) ? ' warn' : '') + '">' + (r.report ? '성취도: ' + esc(r.report) : '') + '</span>' +
-      '<button class="msgbtn" type="button" data-act="msg">' + ic('mail') + '보낼 문자 보기</button></div>';
+      '<span class="footb">' + ((r.att === '출석' || r.att === '지각') && !/^발송완료/.test(r.report || '') ? '<button class="msgbtn send" type="button" data-act="psend">' + ic('mail') + '학부모 문자 발송하기</button>' : '') +
+      '<button class="msgbtn" type="button" data-act="msg">' + ic('mail') + '보낼 문자 보기</button></span></div>';
     h += '</div></article>';
     return h;
   }
@@ -1484,9 +1497,9 @@ table.t td.ck input, table.t th.ck input { width: 18px; height: 18px; }
 
   // ---------- 문자 미리보기 ----------
   var msg = { data: null, tab: '', r: null };
-  function showMsg(r) {
+  function showMsg(r, tab) {
     msg.r = r; msg.data = null;
-    msg.tab = (r.att === '출석' || r.att === '지각') ? 'report' : 'student';
+    msg.tab = tab || ((r.att === '출석' || r.att === '지각') ? 'report' : 'student');
     drawMsg();
     $('msgBox').hidden = false;
     call('apiMsgPreview', r.row, r.name).then(function (d) { msg.data = d; drawMsg(); })
@@ -1504,7 +1517,9 @@ table.t td.ck input, table.t th.ck input { width: 18px; height: 18px; }
         : /^⚠️/.test(st) ? st + ' — 이대로는 발송되지 않습니다' : st ? st : '';
       body = '<div class="mwhen' + (/^⚠️/.test(st) ? ' warn' : '') + '">' + esc(when) + '</div>' +
         (d.report.text ? '<div class="bubble">' + esc(d.report.text) + '</div>'
-          : '<div class="mempty">아직 보낼 내용이 없습니다. 출석과 워크북·실전문제·재시를 입력하면 여기에 문자가 만들어집니다.</div>');
+          : '<div class="mempty">아직 보낼 내용이 없습니다. 출석과 워크북·실전문제·재시를 입력하면 여기에 문자가 만들어집니다.</div>') +
+        (st === '대기' ? '<div class="msend"><button class="btn primary" type="button" data-msend>' + ic('mail') + '학부모님께 지금 보내기</button>' +
+          '<span class="st-mute">보내면 ' + esc(d.reportTime) + ' 자동 발송에서는 빠져요</span></div>' : '');
     } else {
       body = '<div class="mwhen">[미도착 알림 보내기]를 누르면 1~6분 뒤 ' + (msg.tab === 'student' ? '학생' : '학부모님') + '께 이 문자가 나갑니다</div>' +
         '<div class="bubble">' + esc(msg.tab === 'student' ? d.absent.student : d.absent.parent) + '</div>';
@@ -1514,7 +1529,21 @@ table.t td.ck input, table.t th.ck input { width: 18px; height: 18px; }
   }
   $('msgBox').addEventListener('click', function (ev) {
     if (ev.target === this || ev.target.closest('[data-mclose]')) { this.hidden = true; return; }
-    var t = ev.target.closest('[data-mtab]'); if (t) { msg.tab = t.dataset.mtab; drawMsg(); }
+    var t = ev.target.closest('[data-mtab]'); if (t) { msg.tab = t.dataset.mtab; drawMsg(); return; }
+    var sb = ev.target.closest('[data-msend]');
+    if (sb && !sb.disabled) {   // 두 번 눌러야 발송 (실수 방지)
+      if (sb.dataset.sure !== '1') {
+        sb.dataset.sure = '1'; sb.textContent = '한 번 더 누르면 바로 발송';
+        setTimeout(function () { if (sb.isConnected && !sb.disabled) { sb.dataset.sure = ''; sb.innerHTML = ic('mail') + '학부모님께 지금 보내기'; } }, 4000);
+        return;
+      }
+      sb.disabled = true; sb.textContent = '보내는 중…';
+      var mk = key(msg.r);
+      save(mk, 'apiReportSendOne', []).then(function (ok) {
+        var nr = findRow(mk);
+        if (!$('msgBox').hidden && nr) showMsg(nr, 'report');   // 보낸 뒤 상태 다시 보기
+      });
+    }
   });
   document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape' && !$('msgBox').hidden) $('msgBox').hidden = true; });
 
@@ -2012,6 +2041,7 @@ table.t td.ck input, table.t th.ck input { width: 18px; height: 18px; }
     if (act === 'open') { state.open[k] = true; renderCard(k); return; }
     if (act === 'close') { state.open[k] = false; renderCard(k); return; }
     if (act === 'msg') { showMsg(r); return; }
+    if (act === 'psend') { showMsg(r, 'report'); return; }   // 미리보기 창에서 확인 후 [지금 보내기]
     if (act === 'boss-save') {   // 보통은 칸을 벗어날 때 이미 저장됨. 바뀐 게 없으면 "저장됨"만 보여 줌
       var bt = card.querySelector('[data-text="boss"]');
       if (bt && (r.boss || '') !== bt.value.trim()) commitText(bt);
